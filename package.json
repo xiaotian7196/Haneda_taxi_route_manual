@@ -5,13 +5,12 @@
   "type": "module",
   "scripts": {
     "fetch:osm": "node scripts/fetch-osm.ts",
+    "extract:navdata": "node scripts/extract-navdata.ts",
     "build:data": "node scripts/build-data.ts",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node scripts/test-routes.ts",
-    "predev": "node -e \"require('fs').existsSync('src/data/rjtt.json')||process.exit(1)\" || npm run build:data",
-    "prebuild": "node -e \"require('fs').existsSync('src/data/rjtt.json')||process.exit(1)\" || npm run build:data"
+    "test": "node scripts/test-routes.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

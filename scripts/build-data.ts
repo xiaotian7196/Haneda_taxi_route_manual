@@ -1,11 +1,10 @@
 // Builds src/data/rjtt.json from
-//   - data/osm-rjtt.json  (OpenStreetMap aeroway geometry, ODbL)
-//   - X-Plane 12 Custom Data/CIFP/RJTT.dat  (runway thresholds, Navigraph — personal sim use only)
-// Usage: npm run build:data  [path-to-Custom-Data]
+//   - data/osm-rjtt.json      (OpenStreetMap aeroway geometry, ODbL)
+//   - data/navdata/RJTT.dat   (runway thresholds, extracted from X-Plane 12 Custom Data
+//                              by `npm run extract:navdata`)
+// Usage: npm run build:data
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 
-const CUSTOM_DATA =
-  process.argv[2] ?? "K:/SteamLibrary/steamapps/common/X-Plane 12/Custom Data";
 const ORIGIN = { lat: 35.553333, lon: 139.781111 }; // RJTT ARP (earth_aptmeta.dat)
 
 const M_PER_DEG_LAT = 111_132;
@@ -29,8 +28,8 @@ function parseDms(s: string): number {
   return hemi === "S" || hemi === "W" ? -v : v;
 }
 const thresholds: Threshold[] = [];
-const cifpPath = `${CUSTOM_DATA}/CIFP/RJTT.dat`;
-if (!existsSync(cifpPath)) throw new Error(`CIFP not found: ${cifpPath}`);
+const cifpPath = new URL("../data/navdata/RJTT.dat", import.meta.url);
+if (!existsSync(cifpPath)) throw new Error("data/navdata/RJTT.dat missing - run `npm run extract:navdata` first");
 for (const line of readFileSync(cifpPath, "utf8").split(/\r?\n/)) {
   if (!line.startsWith("RWY:")) continue;
   const [head, pos] = line.slice(4).split(";");

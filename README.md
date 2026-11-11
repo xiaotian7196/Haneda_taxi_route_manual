@@ -26,27 +26,37 @@ The UI is available in **English** and **Japanese** (switch in the panel header)
 
 ## Getting started
 
-Requirements: Node.js 22.6+ (scripts run TypeScript directly), and X-Plane 12 with Navigraph data in `Custom Data`.
+Requirements: Node.js 22.6+ (scripts run TypeScript directly).
 
 ```bash
 npm install
-npm run build:data          # or: npm run build:data -- "<path to X-Plane 12/Custom Data>"
 npm run dev
 ```
 
+All data the app needs is already in the repository, so no X-Plane install is required to run it.
 `npm run build` produces a static site in `dist/`. `npm test` routes every flow / runway / terminal combination as a smoke test.
+
+### Refreshing the data
+
+```bash
+npm run extract:navdata -- "<path to X-Plane 12/Custom Data>"   # new AIRAC cycle
+npm run fetch:osm                                                # newer OSM geometry
+npm run build:data                                               # regenerate src/data/rjtt.json
+```
+
+`extract:navdata` copies only what the guide uses out of X-Plane's `Custom Data`: the `RWY:` records from
+`CIFP/RJTT.dat` go into `data/navdata/RJTT.dat`, and the AIRAC cycle info goes into `data/navdata/cycle.json`.
+It defaults to `K:/SteamLibrary/steamapps/common/X-Plane 12/Custom Data`, or you can set `XPLANE_CUSTOM_DATA`.
 
 ## Data
 
-| Source | Used for | Licence |
-| --- | --- | --- |
-| X-Plane 12 `Custom Data/CIFP/RJTT.dat` (Navigraph AIRAC) | Runway thresholds and displaced thresholds | Navigraph personal-use terms |
-| OpenStreetMap via Overpass (`data/osm-rjtt.json`) | Taxiways, stands, aprons, terminals, runway ends | © OpenStreetMap contributors, ODbL |
-| [GSI Tiles](https://maps.gsi.go.jp/development/ichiran.html) (`pale`, `seamlessphoto`) | Background map, loaded at runtime | Geospatial Information Authority of Japan (attribution shown on the map) |
+| Source | File | Used for | Licence |
+| --- | --- | --- | --- |
+| X-Plane 12 Custom Data (Navigraph AIRAC, see `data/navdata/cycle.json`) | `data/navdata/RJTT.dat` | Runway thresholds and displaced thresholds | Navigraph / Jeppesen terms |
+| OpenStreetMap via Overpass | `data/osm-rjtt.json` | Taxiways, stands, aprons, terminals, runway ends | © OpenStreetMap contributors, ODbL |
+| [GSI Tiles](https://maps.gsi.go.jp/development/ichiran.html) (`pale`, `seamlessphoto`) | loaded at runtime | Background map | Geospatial Information Authority of Japan (attribution shown on the map) |
 
-`scripts/build-data.ts` merges both into `src/data/rjtt.json` (local metric coordinates around the ARP).
-Because that file contains Navigraph-derived values it is git-ignored. Do not publish it; rebuild it locally
-from your own subscription. To refresh the OSM geometry run `npm run fetch:osm`.
+`scripts/build-data.ts` merges the first two into `src/data/rjtt.json` (local metric coordinates around the ARP).
 
 ## How routing works
 
@@ -84,6 +94,7 @@ src/plan.ts           selection → routed options
 src/procedures.ts     published taxi routes per runway / terminal
 src/airport.ts        graph model, runway exits and entries
 src/i18n.ts           English / Japanese strings
-scripts/              data fetch, build and route smoke test
+scripts/              nav data extract, OSM fetch, data build, route smoke test
+data/navdata/         runway records extracted from X-Plane Custom Data
 public/RJTT.png       app icon
 ```
