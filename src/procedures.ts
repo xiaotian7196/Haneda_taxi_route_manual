@@ -32,7 +32,7 @@ type Table = Record<string, Partial<Record<Group, Template[]>>>;
 
 export const ARRIVALS: Table = {
   "34L": {
-    T1: [{ via: ["A"], side: "R" }, { via: ["W"], side: "R" }],
+    T1: [{ via: ["W"], side: "R" }, { via: ["A"], side: "R" }],
     T2: [
       { via: ["A", "J", "E"], side: "R" },
       { via: ["A", "J", "R"], side: "R" },

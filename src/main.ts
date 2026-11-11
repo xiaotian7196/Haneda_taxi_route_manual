@@ -352,7 +352,8 @@ function update(fitView: boolean) {
   map.selectStand(state.stand);
   map.setActiveRunway(ap.end(state.runway), state.mode);
   const opts = state.stand ? plan(ap, { mode: state.mode, flow: state.flow, runway: state.runway, stand: state.stand, point: state.point ?? undefined }) : [];
-  if (state.option === null || state.option >= opts.length) state.option = opts.length ? bestIndex(opts) : null;
+  // default to the first published option; "shortest" only tags the chips
+  if (state.option === null || state.option >= opts.length) state.option = opts.length ? 0 : null;
   const sel = state.option !== null ? opts[state.option] : undefined;
   renderPoints(opts, sel);
   renderResult(opts, state.option ?? 0);

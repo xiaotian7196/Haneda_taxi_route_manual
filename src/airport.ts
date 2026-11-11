@@ -160,22 +160,33 @@ export class Airport {
           cur = nx.to;
         }
         chain.reverse(); // runway-most ... node, a.to
+        // The turn-off point is where the taxiway leaves the runway pavement, not
+        // where it touches the centerline: a shallow exit otherwise gets dragged
+        // hundreds of metres down the runway and onto its neighbour's junction.
+        const halfWidth = e.runway.width / 2;
         let ri = 0;
-        chain.forEach((n, i) => {
-          if (i < chain.length - 1 && Math.abs(alongCross(e, this.xy[n]).d) < Math.abs(alongCross(e, this.xy[chain[ri]]).d)) ri = i;
-        });
+        while (ri < chain.length - 2 && Math.abs(alongCross(e, this.xy[chain[ri]]).d) < halfWidth) ri++;
         const root = chain[ri];
-        // continue outward to just beyond the runway edge for the map pin / direction
+        // the direction of the turn is still measured from where the taxiway meets
+        // the centerline, so the exit/entry angles stay stable
+        let centre = 0;
+        chain.forEach((n, i) => {
+          if (i < chain.length - 1 && Math.abs(alongCross(e, this.xy[n]).d) < Math.abs(alongCross(e, this.xy[chain[centre]]).d)) centre = i;
+        });
+        // continue outward for the direction of the turn and for the map pin
         const path = this.follow(chain[chain.length - 2], a.to, a.ref, (n) => Math.abs(alongCross(e, this.xy[n]).d) >= pin, 450);
         const off = path[path.length - 1];
-        const v: XY = [this.xy[off][0] - this.xy[root][0], this.xy[off][1] - this.xy[root][1]];
+        // the map pin stays next to the runway edge even for a shallow exit
+        const short = this.follow(root, chain[ri + 1], a.ref, () => false, 90);
+        const pinAt = short[short.length - 1];
+        const v: XY = [this.xy[off][0] - this.xy[chain[centre]][0], this.xy[off][1] - this.xy[chain[centre]][1]];
         const vl = Math.hypot(v[0], v[1]) || 1;
         const angle = (Math.acos(Math.max(-1, Math.min(1, (v[0] * e.u[0] + v[1] * e.u[1]) / vl))) * 180) / Math.PI;
         const side = e.u[0] * v[1] - e.u[1] * v[0] > 0 ? "L" : "R";
         if (out.some((x) => x.ref === ref && x.side === side && Math.abs(x.s - alongCross(e, this.xy[root]).s) < 150)) continue;
         out.push({
           ref, side, node: root, next: chain[ri + 1], s: alongCross(e, this.xy[root]).s,
-          angle: Math.round(angle), pin: this.xy[off],
+          angle: Math.round(angle), pin: this.xy[pinAt],
         });
       }
     }

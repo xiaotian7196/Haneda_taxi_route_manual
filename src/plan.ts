@@ -1,5 +1,5 @@
 // Turns a user selection into one routed option per published template.
-import type { Airport, Exit, Junction, Leg, XY } from "./airport.ts";
+import type { Airport, Exit, Leg, XY } from "./airport.ts";
 import { ARRIVALS, DEPARTURES, templates, type FlowId, type Template } from "./procedures.ts";
 import { route, steps, type Step } from "./router.ts";
 
@@ -14,7 +14,7 @@ export interface PlanRequest {
 export interface PlanOption {
   template: Template;
   exit?: Exit;
-  entry?: Junction;
+  entry?: Leg;
   steps: Step[];
   line: XY[];
   length: number;
@@ -83,7 +83,11 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
       const want = req.point ?? t.entry;
       const entry = (want && junctions.find((j) => j.ref === want)) || junctions[0];
       if (!entry) continue;
-      const r = route(ap, { start: stand.entry, goal: entry.node, goalFrom: (entry as Leg).next, via: t.via, ownRunway: own });
+      const r = route(ap, {
+        start: stand.entry, goal: entry.node, goalFrom: (entry as Leg).next, via: t.via, ownRunway: own,
+        // the aircraft leaves the stand along its lead-in line, i.e. opposite to goalDir
+        startDir: goalDir && [-goalDir[0], -goalDir[1]],
+      });
       if (!r) continue;
       const st = steps(ap, r, own);
       out.push({
@@ -104,7 +108,7 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
   return uniq.filter((o) => o.length <= min * 1.35);
 }
 
-/** index of the option to preselect: fewest missed taxiways, then shortest */
+/** index of the preferred option (fewest missed taxiways, then shortest); tags the option chips */
 export function bestIndex(opts: PlanOption[]): number {
   let bi = 0;
   opts.forEach((o, i) => {

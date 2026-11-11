@@ -17,8 +17,8 @@ The UI is available in **English** and **Japanese** (switch in the panel header)
 - **Runway configurations** – North flow (34L/34R in, 34R/05 out), South flow · Bay (22/23 in,
   16L/16R out) and South flow · City (16L/16R in, 16R/22 out).
 - **Published taxi logic** – each runway/terminal pair has one or more standard routes
-  (e.g. `34L → A → J → E` for T2). All variants are routed and shown; the shortest is preselected
-  and the others appear as faint alternatives you can tap.
+  (e.g. `34L → A → J → E` for T2). All variants are routed and shown; the first published one is
+  preselected, the shortest is tagged, and the others appear as faint alternatives you can tap.
 - **Runway crossings** are flagged on the map and in the step list.
 - **Chart grid** – 500 m cells (columns A–Z without I/O, rows 1–n) with edge rulers; every step and stand shows its grid reference.
 - **GSI background map** – the pale map or aerial photo from GSI Tiles (Geospatial Information Authority of Japan), or no background. Switch with the layers button.
@@ -67,17 +67,26 @@ It defaults to `K:/SteamLibrary/steamapps/common/X-Plane 12/Custom Data`, or you
 3. Each published route is a list of taxiways (`src/procedures.ts`). The router (`src/router.ts`) runs
    Dijkstra over `(directed edge, progress)` states. Edges on the current or next listed taxiway cost 1×,
    unnamed apron lines cost 1.35×, and any other taxiway costs 2.4×. So the path follows the published
-   flow and still connects through short links.
-   Because the state is the edge just travelled, turns sharper than 105° are not allowed.
-   That rules out reversing at a junction or doubling back through a fillet. Arrivals must also
-   enter the stand lead-in line in the direction of travel. Every degree of turning costs a little,
-   and so does every change of taxiway name. So gentle curves can't add up to a loop around an
-   island, and the path doesn't weave between parallel taxiways. One taxiway of the published list
-   may be skipped at a fixed cost, rather than detouring just to touch it.
-4. Exits and entries are traced back to their true turn-off point on the centerline. An exit
+   flow and still connects through short links; finishing the route without a listed taxiway costs 4 km,
+   and one taxiway of the list may be skipped at a fixed cost instead of detouring just to touch it.
+   Because the state is the edge just travelled, turns sharper than 105° are not allowed at a junction
+   (metre-long junction stubs are exempt, their direction is noise). Every degree of turning costs a
+   little, and so does every change of taxiway name, so gentle curves can't add up to a loop and the
+   path doesn't weave between parallel taxiways. Arrivals must also enter the stand
+   lead-in line in the direction of travel, and the turn out of it is charged on departure; departures
+   must reach the runway along the chosen entry taxiway.
+   The finished path is then inspected for the two detours a taxi clearance never contains: a closed
+   excursion that leaves a junction and comes back to it, and a reversal that sweeps round a long fillet.
+   When one is found, the search is repeated with those edges excluded, so the result is the shortest
+   path that still makes sense to taxi. A published taxiway that cannot be reached without such a detour
+   is left out and reported as missed rather than driven around.
+4. Exits and entries are traced back to their true turn-off point, where the taxiway leaves the runway
+   pavement rather than where it happens to touch the centerline — a shallow connector would otherwise
+   be pulled hundreds of metres down the runway and onto its neighbour's junction. An exit
    must leave at 100° or less to the landing direction. An entry must not need more than a 105° turn onto
    the runway (140° within 300 m of the runway end). So high-speed exits built for the opposite
-   direction are never offered.
+   direction are never offered. When an exit or entry is picked by hand, published-route options that
+   come out more than 35% longer than the best one are dropped.
 5. The path is grouped into steps by taxiway name, with turn direction and runway-crossing callouts.
 
 ## Credits
