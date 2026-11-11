@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Haneda Taxi Guide</title>
+    <link rel="icon" type="image/png" href="/RJTT.png" />
+    <link rel="apple-touch-icon" href="/RJTT.png" />
+  </head>
+  <body>
+    <div id="app">
+      <div id="map-wrap">
+        <svg id="map" data-i18n-aria="mapLabel"></svg>
+        <div id="rulers" aria-hidden="true"></div>
+        <div id="tooltip" role="status"></div>
+      </div>
+
+      <div class="map-controls glass">
+        <button id="zoom-in" data-i18n-title="zoomIn">
+          <svg viewBox="0 0 20 20"><path d="M10 4v12M4 10h12" /></svg>
+        </button>
+        <hr />
+        <button id="zoom-out" data-i18n-title="zoomOut">
+          <svg viewBox="0 0 20 20"><path d="M4 10h12" /></svg>
+        </button>
+      </div>
+      <div class="map-controls glass second">
+        <button id="fit" data-i18n-title="fitAll">
+          <svg viewBox="0 0 20 20"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4" /></svg>
+        </button>
+        <hr />
+        <button id="grid-toggle" data-i18n-title="grid" aria-pressed="true">
+          <svg viewBox="0 0 20 20"><path d="M3 3h14v14H3zM3 10h14M10 3v14" /></svg>
+        </button>
+      </div>
+      <div id="compass" class="glass" aria-hidden="true">N</div>
+      <div id="scale" aria-hidden="true"><div id="scale-bar"></div><span id="scale-label"></span></div>
+
+      <aside id="panel" class="glass">
+        <div class="grabber" aria-hidden="true"></div>
+        <header>
+          <img class="app-icon" src="/RJTT.png" alt="" width="44" height="44" />
+          <div class="titles">
+            <div class="eyebrow" data-i18n="eyebrow"></div>
+            <h1 data-i18n="title"></h1>
+          </div>
+          <div class="segmented lang" id="lang" role="tablist" aria-label="Language"></div>
+        </header>
+
+        <div class="segmented" id="mode" role="tablist"></div>
+
+        <section>
+          <h2 data-i18n="flow"></h2>
+          <div class="segmented small" id="flow"></div>
+          <p class="hint" id="flow-hint"></p>
+        </section>
+
+        <section>
+          <h2 data-i18n="runway"></h2>
+          <div class="segmented" id="runway"></div>
+        </section>
+
+        <section>
+          <h2 data-i18n="stand"></h2>
+          <label class="search">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" /><path d="M13 13l4 4" /></svg>
+            <input id="stand-search" type="search" data-i18n-placeholder="search" autocomplete="off" />
+          </label>
+          <div id="stands" class="stands"></div>
+        </section>
+
+        <section>
+          <h2 id="point-title"></h2>
+          <div id="points" class="chips"></div>
+        </section>
+
+        <section id="result"></section>
+
+        <footer data-i18n="footer"></footer>
+      </aside>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

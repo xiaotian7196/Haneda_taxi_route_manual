@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.claude/
+# Generated from Navigraph CIFP data (personal-use licence) - rebuild with `npm run build:data`
+src/data/rjtt.json
