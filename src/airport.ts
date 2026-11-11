@@ -47,18 +47,22 @@ export interface RunwayEnd {
   sMax: number;
 }
 export interface Junction {
+  pin?: XY;
   ref: string;
   node: number;
   /** along-track distance from the threshold */
   s: number;
 }
-export interface Exit extends Junction {
-  /** first node off the runway on this exit */
+export interface Leg extends Junction {
+  /** next node from the turn-off point along this taxiway */
   next: number;
   side: "L" | "R";
-  /** angle between runway heading and exit, degrees */
+  /** angle between the runway direction of travel and the taxiway leaving it, degrees */
   angle: number;
+  /** a point on this taxiway just beyond the runway edge (map pin) */
+  pin: XY;
 }
+export type Exit = Leg;
 
 const CL_TOL = 14; // m from centerline to count as "on the runway"
 
@@ -69,6 +73,13 @@ export class Airport {
   readonly refs: string[];
   /** node index -> runway id, for nodes lying on a runway centerline */
   readonly runwayNode = new Map<number, string>();
+  /** directed edges (both directions of every segment) */
+  readonly edgeFrom: number[] = [];
+  readonly edgeTo: number[] = [];
+  readonly edgeRef: number[] = [];
+  readonly edgeLen: number[] = [];
+  /** node -> outgoing directed edge ids */
+  readonly out: number[][];
 
   constructor(data: RawData) {
     this.data = data;
@@ -82,6 +93,16 @@ export class Airport {
       this.adj[a].push({ to: b, ref: r, len });
       this.adj[b].push({ to: a, ref: r, len });
     }
+    this.out = this.xy.map(() => []);
+    this.adj.forEach((list, a) => {
+      for (const e of list) {
+        const id = this.edgeTo.push(e.to) - 1;
+        this.edgeFrom.push(a);
+        this.edgeRef.push(e.ref);
+        this.edgeLen.push(e.len);
+        this.out[a].push(id);
+      }
+    });
     for (const rw of data.runways) {
       const ends = rw.id.split("/");
       const e = this.end(ends[0]);
@@ -114,64 +135,93 @@ export class Airport {
     return e;
   }
 
-  /** named taxiway junctions on a runway centerline, sorted from the threshold */
-  junctions(ident: string): Junction[] {
+  /**
+   * Every named taxiway leaving the runway centerline, one per (taxiway, side).
+   * High-speed exits run within a few metres of the centerline for a while, so
+   * the chain is traced back to its true turn-off point (closest to the centerline).
+   */
+  private legs(ident: string): Leg[] {
     const e = this.end(ident);
-    const out: Junction[] = [];
-    for (const [node, id] of this.runwayNode) {
-      if (id !== e.runway.id) continue;
-      const s = alongCross(e, this.xy[node]).s;
+    const id = e.runway.id;
+    const pin = e.runway.width / 2 + 35;
+    const out: Leg[] = [];
+    for (const [node, rw] of this.runwayNode) {
+      if (rw !== id) continue;
       for (const a of this.adj[node]) {
         const ref = this.refs[a.ref];
         if (!ref || this.runwayNode.get(a.to) === id) continue;
-        if (!out.some((j) => j.ref === ref && Math.abs(j.s - s) < 60)) out.push({ ref, node, s });
+        // trace back along the same taxiway through runway nodes
+        const chain = [a.to, node];
+        for (let prev = a.to, cur = node; ;) {
+          const nx = this.adj[cur].find((x) => x.to !== prev && x.ref === a.ref && this.runwayNode.get(x.to) === id);
+          if (!nx || chain.includes(nx.to)) break;
+          chain.push(nx.to);
+          prev = cur;
+          cur = nx.to;
+        }
+        chain.reverse(); // runway-most ... node, a.to
+        let ri = 0;
+        chain.forEach((n, i) => {
+          if (i < chain.length - 1 && Math.abs(alongCross(e, this.xy[n]).d) < Math.abs(alongCross(e, this.xy[chain[ri]]).d)) ri = i;
+        });
+        const root = chain[ri];
+        // continue outward to just beyond the runway edge for the map pin / direction
+        const path = this.follow(chain[chain.length - 2], a.to, a.ref, (n) => Math.abs(alongCross(e, this.xy[n]).d) >= pin, 450);
+        const off = path[path.length - 1];
+        const v: XY = [this.xy[off][0] - this.xy[root][0], this.xy[off][1] - this.xy[root][1]];
+        const vl = Math.hypot(v[0], v[1]) || 1;
+        const angle = (Math.acos(Math.max(-1, Math.min(1, (v[0] * e.u[0] + v[1] * e.u[1]) / vl))) * 180) / Math.PI;
+        const side = e.u[0] * v[1] - e.u[1] * v[0] > 0 ? "L" : "R";
+        if (out.some((x) => x.ref === ref && x.side === side && Math.abs(x.s - alongCross(e, this.xy[root]).s) < 150)) continue;
+        out.push({
+          ref, side, node: root, next: chain[ri + 1], s: alongCross(e, this.xy[root]).s,
+          angle: Math.round(angle), pin: this.xy[off],
+        });
       }
     }
-    return out.sort((a, b) => a.s - b.s);
+    return out.sort((x, y) => x.s - y.s);
+  }
+
+  /** runway entries for a departure on `ident`: no back-turn onto the runway */
+  junctions(ident: string): Junction[] {
+    // entering means travelling the leg inwards; the turn onto the runway is 180 - angle
+    // (wider turns are fine at the runway end, where full-length line-ups happen)
+    return this.legs(ident).filter((l) => 180 - l.angle <= (l.s < 300 ? 140 : 105));
   }
 
   /** runway exits usable after landing on `ident` */
   exits(ident: string): Exit[] {
-    const e = this.end(ident);
-    const out: Exit[] = [];
-    for (const [node, id] of this.runwayNode) {
-      if (id !== e.runway.id) continue;
-      const s = alongCross(e, this.xy[node]).s;
-      if (s < 900) continue; // nobody vacates in the first 900 m
-      for (const a of this.adj[node]) {
-        const ref = this.refs[a.ref];
-        if (!ref || this.runwayNode.get(a.to) === id) continue;
-        // look ~60 m down the exit to get its real direction
-        const far = this.walk(node, a.to, a.ref, 60);
-        const v: XY = [this.xy[far][0] - this.xy[node][0], this.xy[far][1] - this.xy[node][1]];
-        const vl = Math.hypot(v[0], v[1]) || 1;
-        const cos = (v[0] * e.u[0] + v[1] * e.u[1]) / vl;
-        const angle = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI;
-        if (angle > 100) continue; // would need a back-turn
-        const cross = e.u[0] * v[1] - e.u[1] * v[0];
-        const side = cross > 0 ? "L" : "R";
-        if (out.some((x) => x.ref === ref && x.side === side)) continue;
-        out.push({ ref, node, s, next: a.to, side, angle: Math.round(angle) });
-      }
-    }
-    return out.sort((a, b) => a.s - b.s);
+    return this.legs(ident).filter((l) => l.s >= 900 && l.angle <= 100);
   }
 
-  private walk(from: number, to: number, ref: number, minLen: number): number {
+  /** walk along `ref` from (from -> to) until `stop(node)` or `maxLen`; returns the visited nodes */
+  private follow(from: number, to: number, ref: number, stop: (n: number) => boolean, maxLen: number): number[] {
+    const path = [to];
     let prev = from, cur = to, acc = dist(this.xy[from], this.xy[to]);
-    while (acc < minLen) {
+    while (!stop(cur) && acc < maxLen) {
       const nx = this.adj[cur].find((a) => a.to !== prev && a.ref === ref);
       if (!nx) break;
       acc += nx.len;
       prev = cur;
       cur = nx.to;
+      path.push(cur);
     }
-    return cur;
+    return path;
   }
 
   stand(ref: string): Stand | undefined {
     return this.data.stands.find((s) => s.ref === ref);
   }
+}
+
+// Local metric frame used by scripts/build-data.ts (equirectangular around the ARP)
+const M_PER_DEG_LAT = 111_132;
+const mPerDegLon = (lat0: number) => 111_320 * Math.cos((lat0 * Math.PI) / 180);
+export function toLatLon(o: { lat: number; lon: number }, p: XY): [number, number] {
+  return [o.lat + p[1] / M_PER_DEG_LAT, o.lon + p[0] / mPerDegLon(o.lat)];
+}
+export function toLocal(o: { lat: number; lon: number }, lat: number, lon: number): XY {
+  return [(lon - o.lon) * mPerDegLon(o.lat), (lat - o.lat) * M_PER_DEG_LAT];
 }
 
 export const dist = (a: XY, b: XY) => Math.hypot(a[0] - b[0], a[1] - b[1]);

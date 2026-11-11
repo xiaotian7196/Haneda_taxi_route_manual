@@ -21,6 +21,7 @@ The UI is available in **English** and **Japanese** (switch in the panel header)
   and the others appear as faint alternatives you can tap.
 - **Runway crossings** are flagged on the map and in the step list.
 - **Chart grid** – 500 m cells (columns A–Z without I/O, rows 1–n) with edge rulers; every step and stand shows its grid reference.
+- **GSI background map** – the pale map or aerial photo from GSI Tiles (Geospatial Information Authority of Japan), or no background. Switch with the layers button.
 - Full-screen map with pan, wheel/pinch zoom, taxiway signs, hover highlighting, light/dark mode and a mobile bottom sheet.
 
 ## Getting started
@@ -41,6 +42,7 @@ npm run dev
 | --- | --- | --- |
 | X-Plane 12 `Custom Data/CIFP/RJTT.dat` (Navigraph AIRAC) | Runway thresholds and displaced thresholds | Navigraph personal-use terms |
 | OpenStreetMap via Overpass (`data/osm-rjtt.json`) | Taxiways, stands, aprons, terminals, runway ends | © OpenStreetMap contributors, ODbL |
+| [GSI Tiles](https://maps.gsi.go.jp/development/ichiran.html) (`pale`, `seamlessphoto`) | Background map, loaded at runtime | Geospatial Information Authority of Japan (attribution shown on the map) |
 
 `scripts/build-data.ts` merges both into `src/data/rjtt.json` (local metric coordinates around the ARP).
 Because that file contains Navigraph-derived values it is git-ignored. Do not publish it; rebuild it locally
@@ -53,10 +55,17 @@ from your own subscription. To refresh the OSM geometry run `npm run fetch:osm`.
 2. Runway centerlines come from the CIFP thresholds. Taxiway nodes within 14 m of a centerline are runway
    nodes. That gives exits and entries, and lets the router penalise crossings and forbid back-taxi on the active runway.
 3. Each published route is a list of taxiways (`src/procedures.ts`). The router (`src/router.ts`) runs
-   Dijkstra over `(node, progress)` states. Edges on the current or next listed taxiway cost 1×,
+   Dijkstra over `(directed edge, progress)` states. Edges on the current or next listed taxiway cost 1×,
    unnamed apron lines cost 1.35×, and any other taxiway costs 2.4×. So the path follows the published
    flow and still connects through short links.
-4. The path is grouped into steps by taxiway name, with turn direction and runway-crossing callouts.
+   Because the state is the edge just travelled, turns sharper than 105° are not allowed.
+   That rules out reversing at a junction or doubling back through a fillet. Arrivals must also
+   enter the stand lead-in line in the direction of travel.
+4. Exits and entries are traced back to their true turn-off point on the centerline. An exit
+   must leave at 100° or less to the landing direction. An entry must not need more than a 105° turn onto
+   the runway (140° within 300 m of the runway end). So high-speed exits built for the opposite
+   direction are never offered.
+5. The path is grouped into steps by taxiway name, with turn direction and runway-crossing callouts.
 
 ## Credits
 

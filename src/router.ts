@@ -12,6 +12,8 @@ export interface RouteRequest {
   via: string[];
   /** runway the aircraft is leaving/joining: its nodes are only allowed at start/goal */
   ownRunway?: string;
+  /** direction of the stand lead-in leaving the goal node (arrivals) */
+  goalDir?: XY;
 }
 export interface RouteResult {
   nodes: number[];
@@ -56,14 +58,28 @@ class Heap {
   }
 }
 
+// Edge-based search: the state is the directed edge just travelled, so turn
+// angles are known and reversals / cusps at junctions can be ruled out.
+const MAX_TURN = 105; // deg; anything sharper is a U-turn an airliner cannot make
+const TURN_COST = 2; // m per degree above 45 deg
+const BAD_STAND_ENTRY = 2500;
+
+function turnDeg(a: XY, b: XY, c: XY): number {
+  const ux = b[0] - a[0], uy = b[1] - a[1], vx = c[0] - b[0], vy = c[1] - b[1];
+  const l = Math.hypot(ux, uy) * Math.hypot(vx, vy);
+  if (l < 1e-9) return 0;
+  return (Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / l))) * 180) / Math.PI;
+}
+
 export function route(ap: Airport, req: RouteRequest): RouteResult | null {
   const n = req.via.length;
   const K = n + 1;
-  const N = ap.xy.length;
-  const cost = new Float64Array(N * K).fill(Infinity);
-  const prev = new Int32Array(N * K).fill(-1);
+  const E = ap.edgeTo.length;
+  const cost = new Float64Array(E * K).fill(Infinity);
+  const prev = new Int32Array(E * K).fill(-1);
   const viaIdx = req.via.map((r) => ap.refs.indexOf(r));
   const heap = new Heap();
+  const xy = ap.xy;
 
   const nodePenalty = (node: number) => {
     if (node === req.goal || node === req.start) return 0;
@@ -71,64 +87,63 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
     if (!rw) return 0;
     return rw === req.ownRunway ? OWN_RUNWAY : CROSSING;
   };
-  const step = (node: number, k: number, ref: number): [number, number] => {
+  const step = (k: number, ref: number): [number, number] => {
     if (k < n && ref === viaIdx[k]) return [k + 1, 1];
     if (k > 0 && ref === viaIdx[k - 1]) return [k, 1];
     if (ref === 0) return [k, UNNAMED];
-    void node;
     return [k, OFF_TEMPLATE];
   };
+  const goalCost = (e: number) => {
+    // arriving at the stand: the lead-in line must continue the direction of travel
+    if (!req.goalDir) return 0;
+    const a = xy[ap.edgeFrom[e]], b = xy[ap.edgeTo[e]];
+    const c: XY = [b[0] + req.goalDir[0], b[1] + req.goalDir[1]];
+    return turnDeg(a, b, c) > MAX_TURN ? BAD_STAND_ENTRY : 0;
+  };
 
-  const startState = req.start * K;
-  cost[startState] = 0;
+  const seed = (e: number) => {
+    const [k, mult] = step(0, ap.edgeRef[e]);
+    const c = ap.edgeLen[e] * mult + nodePenalty(ap.edgeTo[e]);
+    const s = e * K + k;
+    if (c < cost[s]) { cost[s] = c; heap.push([c, s]); }
+  };
   if (req.firstHop !== undefined) {
-    const e = ap.adj[req.start].find((a) => a.to === req.firstHop)!;
-    const [k] = step(req.start, 0, e.ref);
-    const s = req.firstHop * K + k;
-    cost[s] = e.len;
-    prev[s] = startState;
-    heap.push([e.len, s]);
-  } else heap.push([0, startState]);
+    const e = ap.out[req.start].find((e) => ap.edgeTo[e] === req.firstHop);
+    if (e === undefined) return null;
+    seed(e);
+  } else ap.out[req.start].forEach(seed); // pushback: any direction
 
-  const goalXY = ap.xy[req.goal];
   let best = -1, bestCost = Infinity;
   while (heap.size) {
     const [c, s] = heap.pop();
     if (c > cost[s] || c >= bestCost) continue;
-    const node = (s / K) | 0, k = s % K;
+    const e = (s / K) | 0, k = s % K;
+    const from = ap.edgeFrom[e], node = ap.edgeTo[e];
     if (node === req.goal) {
-      const total = c + (n - k) * MISS;
+      const total = c + (n - k) * MISS + goalCost(e);
       if (total < bestCost) { bestCost = total; best = s; }
       continue;
     }
-    if (req.firstHop !== undefined && s === startState) continue;
-    for (const a of ap.adj[node]) {
-      const [k2, mult] = step(node, k, a.ref);
-      const nc = c + a.len * mult + nodePenalty(a.to);
-      const s2 = a.to * K + k2;
-      if (nc < cost[s2]) {
-        cost[s2] = nc; prev[s2] = s;
-        // A* would need an admissible bound; plain Dijkstra is fast enough here.
-        heap.push([nc, s2]);
-      }
+    for (const e2 of ap.out[node]) {
+      const to = ap.edgeTo[e2];
+      if (to === from) continue;
+      const ang = turnDeg(xy[from], xy[node], xy[to]);
+      if (ang > MAX_TURN) continue;
+      const [k2, mult] = step(k, ap.edgeRef[e2]);
+      const nc = c + ap.edgeLen[e2] * mult + nodePenalty(to) + Math.max(0, ang - 45) * TURN_COST;
+      const s2 = e2 * K + k2;
+      if (nc < cost[s2]) { cost[s2] = nc; prev[s2] = s; heap.push([nc, s2]); }
     }
   }
-  void goalXY;
   if (best < 0) return null;
 
-  const states: number[] = [];
-  for (let s = best; s >= 0; s = prev[s]) states.push(s);
-  states.reverse();
-  const nodes = states.map((s) => (s / K) | 0);
-  const refs: string[] = [];
-  let length = 0;
-  for (let i = 0; i + 1 < nodes.length; i++) {
-    const e = ap.adj[nodes[i]].find((a) => a.to === nodes[i + 1])!;
-    refs.push(ap.refs[e.ref]);
-    length += e.len;
-  }
-  const kEnd = best % K;
-  return { nodes, refs, length, missed: req.via.slice(kEnd) };
+  const edges: number[] = [];
+  for (let s = best; s >= 0; s = prev[s]) edges.push((s / K) | 0);
+  edges.reverse();
+  const nodes = [ap.edgeFrom[edges[0]], ...edges.map((e) => ap.edgeTo[e])];
+  const refs = edges.map((e) => ap.refs[ap.edgeRef[e]]);
+  const length = edges.reduce((a, e) => a + ap.edgeLen[e], 0);
+  return { nodes, refs, length, missed: req.via.slice(best % K) };
 }
 
 // ---------- turn-by-turn ----------
@@ -167,7 +182,9 @@ export function steps(ap: Airport, r: RouteResult, ownRunway?: string): Step[] {
     const prevG = merged[merged.length - 1];
     const nextG = raw[i + 1];
     const bridges = !g.ref && prevG && nextG && nextG.ref === prevG.ref; // X → apron → X
-    if (bridges || (!g.ref && g.length < 90 && prevG && (i < raw.length - 1 || prevG.ref))) {
+    // a few metres clipped across another taxiway at a junction is not a step of its own
+    const sliver = g.ref && g.length < 25 && prevG && nextG;
+    if (bridges || sliver || (!g.ref && g.length < 90 && prevG && (i < raw.length - 1 || prevG.ref))) {
       prevG.to = g.to; prevG.length += g.length; continue;
     }
     if (prevG && prevG.ref === g.ref) { prevG.to = g.to; prevG.length += g.length; continue; }

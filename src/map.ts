@@ -1,5 +1,5 @@
 // Full-screen SVG airport map: pan / zoom, chart grid, taxiway signs, stands, route.
-import { Airport, dist, type RunwayEnd, type XY } from "./airport.ts";
+import { Airport, dist, toLatLon, toLocal, type RunwayEnd, type XY } from "./airport.ts";
 import type { PlanOption } from "./plan.ts";
 import { t } from "./i18n.ts";
 
@@ -21,12 +21,33 @@ const pairs = (flat: number[]): XY[] => {
   return out;
 };
 
+// GSI (Geospatial Information Authority of Japan) tiles — attribution required
+export type Basemap = "pale" | "photo" | "none";
+const TILE_URL: Record<Exclude<Basemap, "none">, string> = {
+  pale: "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",
+  photo: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
+};
+const BASE_Z = 14; // always-loaded low-res cover for the whole airport
+const MAX_Z = 18;
+const lon2tile = (lon: number, z: number) => ((lon + 180) / 360) * 2 ** z;
+const lat2tile = (lat: number, z: number) => {
+  const r = (lat * Math.PI) / 180;
+  return ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z;
+};
+const tile2lon = (x: number, z: number) => (x / 2 ** z) * 360 - 180;
+const tile2lat = (y: number, z: number) => (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / 2 ** z))) * 180) / Math.PI;
+
 export interface Bounds { x0: number; y0: number; x1: number; y1: number }
 export interface MapPoint { key: string; label: string; at: XY; anchor: XY }
 
 export class MapView {
   private svg: SVGSVGElement;
   private world: SVGGElement;
+  private tilesG: SVGGElement;
+  private baseTiles: SVGGElement;
+  private detailTiles: SVGGElement;
+  private basemap: Basemap = "none";
+  private tileTimer = 0;
   private gridG: SVGGElement;
   private overlay: SVGGElement;
   private pointsG: SVGGElement;
@@ -57,6 +78,9 @@ export class MapView {
       y0: Math.floor(b.y0 / CELL) * CELL, y1: Math.ceil(b.y1 / CELL) * CELL,
     };
     this.world = el("g", {}, svg);
+    this.tilesG = el("g", { class: "tiles" }, this.world);
+    this.baseTiles = el("g", {}, this.tilesG);
+    this.detailTiles = el("g", {}, this.tilesG);
     this.gridG = el("g", { class: "grid" }, this.world);
     const base = el("g", {}, this.world);
     const signs = el("g", { class: "lbl-wrap" }, this.world);
@@ -302,6 +326,68 @@ export class MapView {
     this.svg.dataset.zoom = k < 0.32 ? "far" : k < 0.9 ? "mid" : "near";
     this.updateRulers();
     this.updateScale();
+    clearTimeout(this.tileTimer);
+    this.tileTimer = window.setTimeout(() => this.updateTiles(), 90);
+  }
+
+  // ---------- GSI basemap ----------
+  setBasemap(b: Basemap) {
+    if (b === this.basemap) return;
+    this.basemap = b;
+    this.svg.dataset.base = b;
+    this.baseTiles.replaceChildren();
+    this.detailTiles.replaceChildren();
+    if (b !== "none") {
+      const o = this.ap.data.origin, g = this.grid;
+      const [latN, lonW] = toLatLon(o, [g.x0, g.y1]);
+      const [latS, lonE] = toLatLon(o, [g.x1, g.y0]);
+      this.addTiles(this.baseTiles, BASE_Z, lonW, latN, lonE, latS);
+    }
+    this.updateTiles();
+  }
+
+  private tile(z: number, x: number, y: number): SVGImageElement {
+    const o = this.ap.data.origin;
+    const [x0, yN] = toLocal(o, tile2lat(y, z), tile2lon(x, z));
+    const [x1, yS] = toLocal(o, tile2lat(y + 1, z), tile2lon(x + 1, z));
+    const pad = 0.6 * (156543 / 2 ** z) * 0.82; // ~0.6 tile px of overlap hides seams
+    const url = TILE_URL[this.basemap as Exclude<Basemap, "none">].replace("{z}", String(z)).replace("{x}", String(x)).replace("{y}", String(y));
+    const img = el("image", {
+      href: url, x: x0 - pad, y: -yN - pad, width: x1 - x0 + 2 * pad, height: yN - yS + 2 * pad,
+      preserveAspectRatio: "none", "data-k": `${z}/${x}/${y}`,
+    });
+    img.addEventListener("error", () => img.remove()); // ocean tiles may not exist
+    return img;
+  }
+
+  private addTiles(g: SVGGElement, z: number, lonW: number, latN: number, lonE: number, latS: number, keep?: Set<string>) {
+    const xa = Math.floor(lon2tile(lonW, z)), xb = Math.floor(lon2tile(lonE, z));
+    const ya = Math.floor(lat2tile(latN, z)), yb = Math.floor(lat2tile(latS, z));
+    if ((xb - xa + 1) * (yb - ya + 1) > 160) return;
+    const have = new Map([...g.children].map((c) => [c.getAttribute("data-k")!, c]));
+    for (let x = xa; x <= xb; x++)
+      for (let y = ya; y <= yb; y++) {
+        const k = `${z}/${x}/${y}`;
+        keep?.add(k);
+        if (!have.has(k)) g.appendChild(this.tile(z, x, y));
+      }
+  }
+
+  private updateTiles() {
+    if (this.basemap === "none") return;
+    const r = this.svg.getBoundingClientRect();
+    const o = this.ap.data.origin;
+    const mpp = 156543.03 * Math.cos((o.lat * Math.PI) / 180);
+    const z = Math.min(MAX_Z, Math.round(Math.log2(mpp * this.k * Math.min(devicePixelRatio || 1, 2))));
+    if (z <= BASE_Z) { this.detailTiles.replaceChildren(); return; }
+    const w0: XY = [(0 - this.tx) / this.k, -(0 - this.ty) / this.k];
+    const w1: XY = [(r.width - this.tx) / this.k, -(r.height - this.ty) / this.k];
+    const [latN, lonW] = toLatLon(o, w0);
+    const [latS, lonE] = toLatLon(o, w1);
+    const keep = new Set<string>();
+    this.addTiles(this.detailTiles, z, lonW, latN, lonE, latS, keep);
+    // drop tiles from other zoom levels / off screen once the new ones are requested
+    for (const c of [...this.detailTiles.children]) if (!keep.has(c.getAttribute("data-k")!)) c.remove();
   }
 
   private updateRulers() {

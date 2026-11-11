@@ -33,7 +33,18 @@
         <button id="grid-toggle" data-i18n-title="grid" aria-pressed="true">
           <svg viewBox="0 0 20 20"><path d="M3 3h14v14H3zM3 10h14M10 3v14" /></svg>
         </button>
+        <hr />
+        <button id="layers" data-i18n-title="basemap" aria-haspopup="menu" aria-expanded="false">
+          <svg viewBox="0 0 20 20"><path d="M10 3 2.5 7 10 11l7.5-4L10 3ZM2.5 10.5 10 14.5l7.5-4M2.5 14 10 18l7.5-4" /></svg>
+        </button>
       </div>
+      <div id="layer-menu" class="glass" role="menu" hidden>
+        <div class="menu-title" data-i18n="basemap"></div>
+        <button role="menuitemradio" data-base="pale"><span class="swatch pale"></span><span data-i18n="baseMap"></span></button>
+        <button role="menuitemradio" data-base="photo"><span class="swatch photo"></span><span data-i18n="basePhoto"></span></button>
+        <button role="menuitemradio" data-base="none"><span class="swatch none"></span><span data-i18n="baseNone"></span></button>
+      </div>
+      <div id="attribution"><a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank" rel="noopener" data-i18n="gsiCredit"></a><span class="sep"> · </span><a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">© OpenStreetMap</a></div>
       <div id="compass" class="glass" aria-hidden="true">N</div>
       <div id="scale" aria-hidden="true"><div id="scale-bar"></div><span id="scale-label"></span></div>
 

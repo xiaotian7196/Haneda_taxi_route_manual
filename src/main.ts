@@ -1,7 +1,7 @@
 import "./style.css";
 import raw from "./data/rjtt.json";
 import { Airport, type RawData, type XY } from "./airport.ts";
-import { MapView, type MapPoint } from "./map.ts";
+import { MapView, type Basemap, type MapPoint } from "./map.ts";
 import { bestIndex, exitKey, MIN_EXIT_S, plan, type PlanOption } from "./plan.ts";
 import { FLOWS, type FlowId } from "./procedures.ts";
 import type { Step } from "./router.ts";
@@ -20,16 +20,18 @@ interface State {
   point: string | null;
   option: number | null;
   grid: boolean;
+  base: Basemap;
 }
 const STORE = "rjtt-taxi-guide";
 const state: State = {
   lang: navigator.language.startsWith("ja") ? "ja" : "en",
-  mode: "arr", flow: "N", runway: "34L", stand: null, point: null, option: null, grid: true,
+  mode: "arr", flow: "N", runway: "34L", stand: null, point: null, option: null, grid: true, base: "pale",
 };
 try {
   Object.assign(state, JSON.parse(localStorage.getItem(STORE) ?? "{}"), { option: null });
 } catch { /* storage unavailable */ }
 if (state.lang !== "en" && state.lang !== "ja") state.lang = "en";
+if (!["pale", "photo", "none"].includes(state.base)) state.base = "pale";
 const save = () => {
   try { localStorage.setItem(STORE, JSON.stringify(state)); } catch { /* ignore */ }
 };
@@ -51,6 +53,27 @@ const layoutPad = () => {
 layoutPad();
 addEventListener("resize", layoutPad);
 map.setGridVisible(state.grid);
+
+// ---------------- background map (GSI tiles) ----------------
+const layersBtn = $("layers"), layerMenu = $("layer-menu");
+function applyBasemap() {
+  map.setBasemap(state.base);
+  document.body.dataset.base = state.base;
+  layerMenu.querySelectorAll<HTMLElement>("button").forEach((b) => b.setAttribute("aria-checked", String(b.dataset.base === state.base)));
+}
+const setMenu = (open: boolean) => {
+  layerMenu.hidden = !open;
+  layersBtn.setAttribute("aria-expanded", String(open));
+};
+layersBtn.onclick = (e) => { e.stopPropagation(); setMenu(layerMenu.hidden); };
+layerMenu.querySelectorAll<HTMLElement>("button").forEach((b) => (b.onclick = () => {
+  state.base = b.dataset.base as Basemap;
+  applyBasemap();
+  save();
+  setMenu(false);
+}));
+document.addEventListener("click", (e) => { if (!layerMenu.contains(e.target as Node)) setMenu(false); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") setMenu(false); });
 
 // ---------------- static text ----------------
 function applyStaticText() {
@@ -181,23 +204,19 @@ map.onStand = pickStand;
 interface UiPoint { key: string; label: string; sub: string; side?: "L" | "R"; s: number; at: XY; anchor: XY }
 function pointsFor(): UiPoint[] {
   if (state.mode === "arr") {
-    return ap.exits(state.runway).map((e) => {
-      const a = ap.xy[e.node], b = ap.xy[e.next];
-      const d = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-      const off = Math.min(120, d * 3);
-      return {
-        key: exitKey(e), label: e.ref, side: e.side, s: e.s, sub: `${(e.s / 1000).toFixed(1)} km`,
-        at: [a[0] + ((b[0] - a[0]) / d) * off, a[1] + ((b[1] - a[1]) / d) * off] as XY, anchor: a,
-      };
-    });
+    return ap.exits(state.runway).map((e) => ({
+      key: exitKey(e), label: e.ref, side: e.side, s: e.s, sub: `${(e.s / 1000).toFixed(1)} km`,
+      at: e.pin, anchor: ap.xy[e.node],
+    }));
   }
   const end = ap.end(state.runway);
   return ap.junctions(state.runway)
     .filter((j) => j.s < (end.sMax - end.sMin) * 0.5) // departure half of the runway
+    .filter((j, i, l) => l.findIndex((x) => x.ref === j.ref) === i)
     .map((j) => ({
       key: j.ref, label: j.ref, s: j.s,
       sub: j.s < 50 ? t("full") : t("remain", { d: `${((end.sMax - j.s) / 1000).toFixed(1)} km` }),
-      at: ap.xy[j.node], anchor: ap.xy[j.node],
+      at: j.pin ?? ap.xy[j.node], anchor: ap.xy[j.node],
     }));
 }
 
@@ -365,5 +384,6 @@ gridBtn.onclick = () => {
 };
 applyStaticText();
 map.fitAll(false);
+applyBasemap();
 update(false);
 if (state.stand) requestAnimationFrame(() => { lastRouteKey = ""; update(true); });

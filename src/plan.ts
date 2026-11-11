@@ -47,6 +47,10 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
   const own = ap.runway(req.runway).id;
   const out: PlanOption[] = [];
 
+  // direction of the stand lead-in line as it leaves the taxiway network
+  const lead = standLine.find((p) => Math.hypot(p[0] - standLine[0][0], p[1] - standLine[0][1]) > 3);
+  const goalDir: XY | undefined = lead && [lead[0] - standLine[0][0], lead[1] - standLine[0][1]];
+
   if (req.mode === "arr") {
     const exits = ap.exits(req.runway);
     for (const t of templates(ARRIVALS, req.runway, stand.group, req.flow)) {
@@ -55,7 +59,7 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
       let best: PlanOption | null = null;
       let bestScore = Infinity;
       for (const exit of candidates) {
-        const r = route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own });
+        const r = route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own, goalDir });
         if (!r) continue;
         // prefer exits around a typical airliner landing roll over long roll-outs
         const score = r.length + Math.max(0, exit.s - LIKELY_EXIT_S) * 2 + r.missed.length * 4000;
