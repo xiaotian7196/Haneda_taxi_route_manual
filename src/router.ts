@@ -14,6 +14,8 @@ export interface RouteRequest {
   ownRunway?: string;
   /** direction of the stand lead-in leaving the goal node (arrivals) */
   goalDir?: XY;
+  /** the goal only counts when reached from this node (departures: along the chosen entry) */
+  goalFrom?: number;
 }
 export interface RouteResult {
   nodes: number[];
@@ -85,8 +87,9 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
   const heap = new Heap();
   const xy = ap.xy;
 
-  const nodePenalty = (node: number) => {
-    if (node === req.goal || node === req.start) return 0;
+  const nodePenalty = (node: number, from: number) => {
+    if (node === req.start) return 0;
+    if (node === req.goal && (req.goalFrom === undefined || from === req.goalFrom)) return 0;
     const rw = ap.runwayNode.get(node);
     if (!rw) return 0;
     return rw === req.ownRunway ? OWN_RUNWAY : CROSSING;
@@ -110,7 +113,7 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
 
   const seed = (e: number) => {
     const [k, mult, extra] = step(0, ap.edgeRef[e]);
-    const c = ap.edgeLen[e] * mult + extra + nodePenalty(ap.edgeTo[e]);
+    const c = ap.edgeLen[e] * mult + extra + nodePenalty(ap.edgeTo[e], req.start);
     const s = e * K + k;
     if (c < cost[s]) { cost[s] = c; heap.push([c, s]); }
   };
@@ -126,7 +129,7 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
     if (c > cost[s] || c >= bestCost) continue;
     const e = (s / K) | 0, k = s % K;
     const from = ap.edgeFrom[e], node = ap.edgeTo[e];
-    if (node === req.goal) {
+    if (node === req.goal && (req.goalFrom === undefined || from === req.goalFrom)) {
       const total = c + (n - k) * MISS + goalCost(e);
       if (total < bestCost) { bestCost = total; best = s; }
       continue;
@@ -137,7 +140,7 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
       const ang = turnDeg(xy[from], xy[node], xy[to]);
       if (ang > MAX_TURN) continue;
       const [k2, mult, extra] = step(k, ap.edgeRef[e2]);
-      const nc = c + ap.edgeLen[e2] * mult + extra + nodePenalty(to)
+      const nc = c + ap.edgeLen[e2] * mult + extra + nodePenalty(to, node)
         + ang * TURN_ALL + Math.max(0, ang - 45) * TURN_COST + refChange(ap.edgeRef[e], ap.edgeRef[e2]);
       const s2 = e2 * K + k2;
       if (nc < cost[s2]) { cost[s2] = nc; prev[s2] = s; heap.push([nc, s2]); }

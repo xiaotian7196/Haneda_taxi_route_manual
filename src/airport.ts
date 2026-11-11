@@ -183,7 +183,7 @@ export class Airport {
   }
 
   /** runway entries for a departure on `ident`: no back-turn onto the runway */
-  junctions(ident: string): Junction[] {
+  junctions(ident: string): Leg[] {
     // entering means travelling the leg inwards; the turn onto the runway is 180 - angle
     // (wider turns are fine at the runway end, where full-length line-ups happen)
     return this.legs(ident).filter((l) => 180 - l.angle <= (l.s < 300 ? 140 : 105));
