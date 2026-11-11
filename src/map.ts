@@ -27,7 +27,8 @@ const TILE_URL: Record<Exclude<Basemap, "none">, string> = {
   pale: "https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png",
   photo: "https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg",
 };
-const BASE_Z = 14; // always-loaded low-res cover for the whole airport
+const BASE_Z = 14; // always-loaded cover for the whole airport
+const WIDE_Z = 12; // coarse surround so zoomed-out views have no empty edges
 const MAX_Z = 18;
 const lon2tile = (lon: number, z: number) => ((lon + 180) / 360) * 2 ** z;
 const lat2tile = (lat: number, z: number) => {
@@ -339,6 +340,11 @@ export class MapView {
     this.detailTiles.replaceChildren();
     if (b !== "none") {
       const o = this.ap.data.origin, g = this.grid;
+      // wide low-res surround first, then the airport at BASE_Z on top
+      const M = 9000;
+      const [wN, wW] = toLatLon(o, [g.x0 - M, g.y1 + M]);
+      const [wS, wE] = toLatLon(o, [g.x1 + M, g.y0 - M]);
+      this.addTiles(this.baseTiles, WIDE_Z, wW, wN, wE, wS);
       const [latN, lonW] = toLatLon(o, [g.x0, g.y1]);
       const [latS, lonE] = toLatLon(o, [g.x1, g.y0]);
       this.addTiles(this.baseTiles, BASE_Z, lonW, latN, lonE, latS);

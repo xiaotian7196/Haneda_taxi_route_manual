@@ -61,7 +61,11 @@ class Heap {
 // Edge-based search: the state is the directed edge just travelled, so turn
 // angles are known and reversals / cusps at junctions can be ruled out.
 const MAX_TURN = 105; // deg; anything sharper is a U-turn an airliner cannot make
-const TURN_COST = 2; // m per degree above 45 deg
+const TURN_COST = 2; // extra m per degree above 45 deg
+const TURN_ALL = 0.8; // m per degree of any heading change: long curving detours are not free
+const REF_CHANGE = 70; // m per change of taxiway name: stops weaving between parallels
+const REF_CHANGE_APRON = 25; // named <-> unnamed apron line
+const SKIP = 350; // m to drop one taxiway of the published list rather than loop to touch it
 const BAD_STAND_ENTRY = 2500;
 
 function turnDeg(a: XY, b: XY, c: XY): number {
@@ -87,12 +91,15 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
     if (!rw) return 0;
     return rw === req.ownRunway ? OWN_RUNWAY : CROSSING;
   };
-  const step = (k: number, ref: number): [number, number] => {
-    if (k < n && ref === viaIdx[k]) return [k + 1, 1];
-    if (k > 0 && ref === viaIdx[k - 1]) return [k, 1];
-    if (ref === 0) return [k, UNNAMED];
-    return [k, OFF_TEMPLATE];
+  // -> [new progress, length multiplier, flat extra cost]
+  const step = (k: number, ref: number): [number, number, number] => {
+    if (k < n && ref === viaIdx[k]) return [k + 1, 1, 0];
+    if (k > 0 && ref === viaIdx[k - 1]) return [k, 1, 0];
+    if (k + 1 < n && ref === viaIdx[k + 1]) return [k + 2, 1, SKIP];
+    if (ref === 0) return [k, UNNAMED, 0];
+    return [k, OFF_TEMPLATE, 0];
   };
+  const refChange = (a: number, b: number) => (a === b ? 0 : a === 0 || b === 0 ? REF_CHANGE_APRON : REF_CHANGE);
   const goalCost = (e: number) => {
     // arriving at the stand: the lead-in line must continue the direction of travel
     if (!req.goalDir) return 0;
@@ -102,8 +109,8 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
   };
 
   const seed = (e: number) => {
-    const [k, mult] = step(0, ap.edgeRef[e]);
-    const c = ap.edgeLen[e] * mult + nodePenalty(ap.edgeTo[e]);
+    const [k, mult, extra] = step(0, ap.edgeRef[e]);
+    const c = ap.edgeLen[e] * mult + extra + nodePenalty(ap.edgeTo[e]);
     const s = e * K + k;
     if (c < cost[s]) { cost[s] = c; heap.push([c, s]); }
   };
@@ -129,8 +136,9 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
       if (to === from) continue;
       const ang = turnDeg(xy[from], xy[node], xy[to]);
       if (ang > MAX_TURN) continue;
-      const [k2, mult] = step(k, ap.edgeRef[e2]);
-      const nc = c + ap.edgeLen[e2] * mult + nodePenalty(to) + Math.max(0, ang - 45) * TURN_COST;
+      const [k2, mult, extra] = step(k, ap.edgeRef[e2]);
+      const nc = c + ap.edgeLen[e2] * mult + extra + nodePenalty(to)
+        + ang * TURN_ALL + Math.max(0, ang - 45) * TURN_COST + refChange(ap.edgeRef[e], ap.edgeRef[e2]);
       const s2 = e2 * K + k2;
       if (nc < cost[s2]) { cost[s2] = nc; prev[s2] = s; heap.push([nc, s2]); }
     }

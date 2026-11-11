@@ -10,7 +10,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "node scripts/test-routes.ts"
+    "test": "node scripts/test-routes.ts",
+    "test:loops": "node scripts/test-loops.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -34,7 +34,7 @@ npm run dev
 ```
 
 All data the app needs is already in the repository, so no X-Plane install is required to run it.
-`npm run build` produces a static site in `dist/`. `npm test` routes every flow / runway / terminal combination as a smoke test.
+`npm run build` produces a static site in `dist/`. `npm test` routes every flow / runway / terminal combination as a smoke test. `npm run test:loops` lists routes that wind more than 200° within 400 m.
 
 ### Refreshing the data
 
@@ -70,7 +70,10 @@ It defaults to `K:/SteamLibrary/steamapps/common/X-Plane 12/Custom Data`, or you
    flow and still connects through short links.
    Because the state is the edge just travelled, turns sharper than 105° are not allowed.
    That rules out reversing at a junction or doubling back through a fillet. Arrivals must also
-   enter the stand lead-in line in the direction of travel.
+   enter the stand lead-in line in the direction of travel. Every degree of turning costs a little,
+   and so does every change of taxiway name. So gentle curves can't add up to a loop around an
+   island, and the path doesn't weave between parallel taxiways. One taxiway of the published list
+   may be skipped at a fixed cost, rather than detouring just to touch it.
 4. Exits and entries are traced back to their true turn-off point on the centerline. An exit
    must leave at 100° or less to the landing direction. An entry must not need more than a 105° turn onto
    the runway (140° within 300 m of the runway end). So high-speed exits built for the opposite
