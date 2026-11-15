@@ -193,6 +193,12 @@ export class Airport {
     return out.sort((x, y) => x.s - y.s);
   }
 
+  /** which side of the runway (as flown on `ident`) a point lies on */
+  sideOf(ident: string, p: XY): "L" | "R" {
+    const e = this.end(ident);
+    return e.u[0] * (p[1] - e.thr[1]) - e.u[1] * (p[0] - e.thr[0]) > 0 ? "L" : "R";
+  }
+
   /** runway entries for a departure on `ident`: no back-turn onto the runway */
   junctions(ident: string): Leg[] {
     // entering means travelling the leg inwards; the turn onto the runway is 180 - angle
