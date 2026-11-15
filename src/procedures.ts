@@ -41,11 +41,11 @@ export const ARRIVALS: Table = {
     T3: [{ via: [], side: "L", note: { en: "Turn left off the runway straight onto the T3 apron", ja: "左に離脱してそのまま T3 エプロンへ" } }],
   },
   "34R": {
+    // T1 arrivals: the north side is worked via K, the south side via G, and the
+    // shorter of the two is the one to fly
     T1: [
       { via: ["C", "K", "W"], side: "L" },
-      { via: ["C", "K", "A"], side: "L" },
       { via: ["C", "G", "W"], side: "L" },
-      { via: ["C", "G", "A"], side: "L" },
     ],
     T2: [{ via: ["C"], side: "L" }],
     T3: [
