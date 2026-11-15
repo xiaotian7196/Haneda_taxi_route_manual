@@ -20,6 +20,8 @@ export interface RouteRequest {
   startDir?: XY;
   /** the goal only counts when reached from this node (departures: along the chosen entry) */
   goalFrom?: number;
+  /** taxiways this movement may not use */
+  avoidRefs?: string[];
 }
 export interface RouteResult {
   nodes: number[];
@@ -150,6 +152,7 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
   const K = n + 1;
   const E = ap.edgeTo.length;
   const viaIdx = req.via.map((r) => ap.refs.indexOf(r));
+  const avoid = req.avoidRefs ? new Set(req.avoidRefs.map((r) => ap.refs.indexOf(r))) : null;
   const xy = ap.xy;
 
   const nodePenalty = (node: number, from: number) => {
@@ -213,6 +216,7 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
       }
       for (const e2 of ap.out[node]) {
         if (banned.has(e2)) continue;
+        if (avoid?.has(ap.edgeRef[e2])) continue;
         const to = ap.edgeTo[e2];
         if (to === from) continue;
         const ang = turnDeg(xy[from], xy[node], xy[to]);
