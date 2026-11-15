@@ -45,8 +45,8 @@ const S = {
     ja: "滑走路 {r} を横断します。停止位置で止まり、管制の許可を得てから横断してください。",
   },
   missedWarn: {
-    en: "{t} from the standard route is not connected in the map data; the nearest path was used instead.",
-    ja: "標準ルートの {t} は地図データ上で接続されていないため、最寄りの経路で代替しています。",
+    en: "{t} from the standard route is not used; the shortest path was taken instead.",
+    ja: "標準ルートの {t} は使用せず、最短経路で代替しています。",
   },
   vacate: { en: "Vacate runway {rwy} via {x}, turning {side}", ja: "{x} で{side}に離脱 · 滑走路 {rwy}" },
   sideL: { en: "left", ja: "左" },
