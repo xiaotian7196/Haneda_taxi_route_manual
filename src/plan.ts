@@ -74,6 +74,10 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
     }
     for (const t of list) {
       let candidates = req.point ? exits.filter((e) => exitKey(e) === req.point) : exits.filter((e) => e.s >= MIN_EXIT_S);
+      // a stand is only ever served from its own side of the runway
+      const standSide = ap.sideOf(req.runway, [stand.x, stand.y]);
+      const sameSide = candidates.filter((e) => e.side === standSide);
+      if (sameSide.length) candidates = sameSide;
       if (!req.point && t.side && candidates.some((e) => e.side === t.side)) candidates = candidates.filter((e) => e.side === t.side);
       let best: PlanOption | null = null;
 
