@@ -63,9 +63,14 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
       }
       return direct.get(exit.node) ?? null;
     };
-    // T1 may use K (north) or G (south) — J and H are the only banned taxiways —
-    // and the list sorts the fully-published variants by length, so the nearest leads
-    const list = templates(ARRIVALS, req.runway, stand.group, req.flow);
+    // T1 may use K (north) or G (south) — J and H are banned — but a stand on the
+    // south side must not be worked via K: that route runs up the north side and
+    // comes all the way back down
+    let list = templates(ARRIVALS, req.runway, stand.group, req.flow);
+    if (stand.group === "T1" && stand.y < 0) {
+      const south = list.filter((t) => !t.via.includes("K"));
+      if (south.length) list = south;
+    }
     for (const t of list) {
       let candidates = req.point ? exits.filter((e) => exitKey(e) === req.point) : exits.filter((e) => e.s >= MIN_EXIT_S);
       if (!req.point && t.side && candidates.some((e) => e.side === t.side)) candidates = candidates.filter((e) => e.side === t.side);
