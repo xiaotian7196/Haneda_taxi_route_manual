@@ -204,7 +204,13 @@ map.onStand = pickStand;
 interface UiPoint { key: string; label: string; sub: string; side?: "L" | "R"; s: number; at: XY; anchor: XY }
 function pointsFor(): UiPoint[] {
   if (state.mode === "arr") {
-    return ap.exits(state.runway).map((e) => ({
+    // only the exits on the stand's side of the runway: the opposite-side exits would
+    // mean crossing (or going round) the runway before the taxi even starts
+    const stand = state.stand ? ap.stand(state.stand) : undefined;
+    const side = stand ? ap.sideOf(state.runway, [stand.x, stand.y]) : undefined;
+    const all = ap.exits(state.runway);
+    const near = side ? all.filter((e) => e.side === side) : [];
+    return (near.length ? near : all).map((e) => ({
       key: exitKey(e), label: e.ref, side: e.side, s: e.s, sub: `${(e.s / 1000).toFixed(1)} km`,
       at: e.pin, anchor: ap.xy[e.node],
     }));
