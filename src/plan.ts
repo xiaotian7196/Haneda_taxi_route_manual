@@ -53,21 +53,32 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
 
   if (req.mode === "arr") {
     const exits = ap.exits(req.runway);
+    // T1 arrivals are worked via K (north) or G (south); J and H are not used
+    const avoidRefs = stand.group === "T1" ? ["J", "H"] : undefined;
     // the direct route from an exit only depends on the exit, so share it between templates
     const direct = new Map<number, ReturnType<typeof route>>();
     const directRoute = (exit: Exit) => {
       if (!direct.has(exit.node)) {
-        direct.set(exit.node, route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: [], ownRunway: own, goalDir }));
+        direct.set(exit.node, route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: [], ownRunway: own, goalDir, avoidRefs }));
       }
       return direct.get(exit.node) ?? null;
     };
-    for (const t of templates(ARRIVALS, req.runway, stand.group, req.flow)) {
+    // T1 is worked from the north via K and from the south via G, not whichever is shorter
+    let list = templates(ARRIVALS, req.runway, stand.group, req.flow);
+    if (stand.group === "T1") {
+      const north = stand.y >= 0;
+      const side = list.filter((t) => (north ? t.via.includes("K") : t.via.includes("G")));
+      if (side.length) list = side;
+    }
+    for (const t of list) {
       let candidates = req.point ? exits.filter((e) => exitKey(e) === req.point) : exits.filter((e) => e.s >= MIN_EXIT_S);
       if (!req.point && t.side && candidates.some((e) => e.side === t.side)) candidates = candidates.filter((e) => e.side === t.side);
       let best: PlanOption | null = null;
       let bestScore = Infinity;
       for (const exit of candidates) {
-        const r = route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own, goalDir });
+        const r = route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own, goalDir, avoidRefs })
+          // if the banned taxiways are the only way in, fall back to them rather than lose the stand
+          ?? (avoidRefs ? route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own, goalDir }) : null);
         if (!r) continue;
         // Following the published taxiways must not mean driving round an apron
         // island: when the direct route is much shorter, take it and say which
