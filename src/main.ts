@@ -278,8 +278,13 @@ function renderResult(opts: PlanOption[], selIdx: number) {
   const mins = Math.max(1, Math.round(o.length / TAXI_MPS / 60));
   const spot = sign(`Spot ${stand.ref}`, "spot");
 
+  // the chip names the taxiways the route actually uses, not the template it was asked to follow
+  const chipLabel = (p: PlanOption) => {
+    const refs = [...new Set(p.steps.map((s) => s.ref).filter(Boolean))];
+    return refs.length ? esc(refs.join("·")) : esc(t("direct"));
+  };
   const optionChips = opts.length > 1
-    ? `<div class="options">${opts.map((p, i) => `<button class="chip${i === selIdx ? " selected" : ""}" data-i="${i}">${p.template.via.length ? esc(p.template.via.join("·")) : esc(t("direct"))}<span class="sub">${fmtDist(p.length)}${i === best ? ` · ${esc(t("shortest"))}` : ""}</span></button>`).join("")}</div>`
+    ? `<div class="options">${opts.map((p, i) => `<button class="chip${i === selIdx ? " selected" : ""}" data-i="${i}">${chipLabel(p)}<span class="sub">${fmtDist(p.length)}${i === best ? ` · ${esc(t("shortest"))}` : ""}</span></button>`).join("")}</div>`
     : "";
 
   const signs = o.summary.split(" → ")
