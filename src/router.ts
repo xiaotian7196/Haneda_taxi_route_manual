@@ -82,7 +82,10 @@ const TURN_ALL = 0.8; // m per degree of any heading change: long curving detour
 const REF_CHANGE = 70; // m per change of taxiway name: stops weaving between parallels
 const REF_CHANGE_APRON = 25; // named <-> unnamed apron line
 const SKIP = 350; // m to drop one taxiway of the published list rather than loop to touch it
-const BAD_STAND_ENTRY = 2500;
+// Turning into the stand lead-in against the direction it is drawn in is a preference,
+// not a hard rule: charge it by how sharp the turn is instead of banning it outright,
+// so a route that would otherwise loop right round the apron can still go straight in.
+const STAND_ENTRY_COST = 4; // m per degree above the 105 deg limit
 const MISS = 4000;
 
 // A taxi clearance never leaves a junction and comes back to it. The graph,
@@ -166,11 +169,12 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
   };
   const refChange = (a: number, b: number) => (a === b ? 0 : a === 0 || b === 0 ? REF_CHANGE_APRON : REF_CHANGE);
   const goalCost = (e: number) => {
-    // arriving at the stand: the lead-in line must continue the direction of travel
+    // arriving at the stand: prefer to keep the direction of travel the lead-in is drawn in,
+    // but only charge the excess so a bad lead-in direction cannot force a loop round the apron
     if (!req.goalDir) return 0;
     const a = xy[ap.edgeFrom[e]], b = xy[ap.edgeTo[e]];
     const c: XY = [b[0] + req.goalDir[0], b[1] + req.goalDir[1]];
-    return turnDeg(a, b, c) > MAX_TURN ? BAD_STAND_ENTRY : 0;
+    return Math.max(0, turnDeg(a, b, c) - MAX_TURN) * STAND_ENTRY_COST;
   };
 
   /** Dijkstra with `banned` directed edges removed; returns the best edge list and its template level */
