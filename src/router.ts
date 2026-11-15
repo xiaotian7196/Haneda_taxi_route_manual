@@ -216,8 +216,9 @@ export function route(ap: Airport, req: RouteRequest): RouteResult | null {
       }
       for (const e2 of ap.out[node]) {
         if (banned.has(e2)) continue;
-        if (avoid?.has(ap.edgeRef[e2])) continue;
         const to = ap.edgeTo[e2];
+        // a stand whose lead-in sits on an avoided taxiway still has to reach it
+        if (avoid?.has(ap.edgeRef[e2]) && to !== req.goal) continue;
         if (to === from) continue;
         const ang = turnDeg(xy[from], xy[node], xy[to]);
         // a metre-long stub says nothing about the real direction of a turn
