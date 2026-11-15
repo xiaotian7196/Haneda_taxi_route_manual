@@ -55,13 +55,14 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
     const exits = ap.exits(req.runway);
     // T1 arrivals are worked via K (north) or G (south); J and H are not used
     const avoidRefs = stand.group === "T1" ? ["J", "H"] : undefined;
-    // the direct route from an exit only depends on the exit, so share it between templates
-    const direct = new Map<number, ReturnType<typeof route>>();
-    const directRoute = (exit: Exit) => {
-      if (!direct.has(exit.node)) {
-        direct.set(exit.node, route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: [], ownRunway: own, goalDir, avoidRefs }));
+    // the direct route from an exit only depends on the exit and the banned set
+    const direct = new Map<string, ReturnType<typeof route>>();
+    const directRoute = (exit: Exit, avoid?: string[]) => {
+      const key = `${exit.node}|${avoid ? avoid.join(",") : ""}`;
+      if (!direct.has(key)) {
+        direct.set(key, route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: [], ownRunway: own, goalDir, avoidRefs: avoid }));
       }
-      return direct.get(exit.node) ?? null;
+      return direct.get(key) ?? null;
     };
     // T1 may use K (north) or G (south) — J and H are banned — but a stand on the
     // south side must not be worked via K: that route runs up the north side and
@@ -87,7 +88,7 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
           // Following the published taxiways must not mean driving round an apron
           // island: when the direct route is much shorter, take it and say which
           // published taxiways it left out.
-          const d = directRoute(exit);
+          const d = directRoute(exit, avoid);
           const use = d && r.length > d.length * 1.2 ? d : r;
           const missed = use === d ? t.via.filter((v) => !use.refs.includes(v)) : r.missed;
           // prefer exits around a typical airliner landing roll over long roll-outs
