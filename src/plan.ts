@@ -63,43 +63,45 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
       }
       return direct.get(exit.node) ?? null;
     };
-    // T1 is worked from the north via K and from the south via G, not whichever is shorter
-    let list = templates(ARRIVALS, req.runway, stand.group, req.flow);
-    if (stand.group === "T1") {
-      const north = stand.y >= 0;
-      const side = list.filter((t) => (north ? t.via.includes("K") : t.via.includes("G")));
-      if (side.length) list = side;
-    }
+    // T1 may use K (north) or G (south) — J and H are the only banned taxiways —
+    // and the list sorts the fully-published variants by length, so the nearest leads
+    const list = templates(ARRIVALS, req.runway, stand.group, req.flow);
     for (const t of list) {
       let candidates = req.point ? exits.filter((e) => exitKey(e) === req.point) : exits.filter((e) => e.s >= MIN_EXIT_S);
       if (!req.point && t.side && candidates.some((e) => e.side === t.side)) candidates = candidates.filter((e) => e.side === t.side);
       let best: PlanOption | null = null;
-      let bestScore = Infinity;
-      for (const exit of candidates) {
-        const r = route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own, goalDir, avoidRefs })
-          // if the banned taxiways are the only way in, fall back to them rather than lose the stand
-          ?? (avoidRefs ? route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own, goalDir }) : null);
-        if (!r) continue;
-        // Following the published taxiways must not mean driving round an apron
-        // island: when the direct route is much shorter, take it and say which
-        // published taxiways it left out.
-        const d = directRoute(exit);
-        const use = d && r.length > d.length * 1.2 ? d : r;
-        const missed = use === d ? t.via.filter((v) => !use.refs.includes(v)) : r.missed;
-        // prefer exits around a typical airliner landing roll over long roll-outs
-        const score = use.length + Math.max(0, exit.s - LIKELY_EXIT_S) * 2 + missed.length * 4000;
-        if (best && bestScore <= score) continue;
-        bestScore = score;
-        const st = steps(ap, use, own);
-        best = {
-          template: t, exit, steps: st,
-          line: [...use.nodes.map((n) => ap.xy[n]), ...standLine.slice(1)],
-          length: use.length, missed,
-          summary: [...st.map((s) => s.ref).filter(Boolean), `Spot ${stand.ref}`].join(" → "),
-          crossings: [...new Set(st.map((s) => s.crossing).filter((c): c is string => !!c))],
-          crossAt: crossPoints(ap, use.nodes, own),
-        };
-      }
+
+      // first pass keeps clear of the banned taxiways; only if that hides the stand
+      // altogether do we fall back to them
+      const pick = (avoid?: string[]) => {
+        best = null;
+        let bestScore = Infinity;
+        for (const exit of candidates) {
+          const r = route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own, goalDir, avoidRefs: avoid });
+          if (!r) continue;
+          // Following the published taxiways must not mean driving round an apron
+          // island: when the direct route is much shorter, take it and say which
+          // published taxiways it left out.
+          const d = directRoute(exit);
+          const use = d && r.length > d.length * 1.2 ? d : r;
+          const missed = use === d ? t.via.filter((v) => !use.refs.includes(v)) : r.missed;
+          // prefer exits around a typical airliner landing roll over long roll-outs
+          const score = use.length + Math.max(0, exit.s - LIKELY_EXIT_S) * 2 + missed.length * 4000;
+          if (best && bestScore <= score) continue;
+          bestScore = score;
+          const st = steps(ap, use, own);
+          best = {
+            template: t, exit, steps: st,
+            line: [...use.nodes.map((n) => ap.xy[n]), ...standLine.slice(1)],
+            length: use.length, missed,
+            summary: [...st.map((s) => s.ref).filter(Boolean), `Spot ${stand.ref}`].join(" → "),
+            crossings: [...new Set(st.map((s) => s.crossing).filter((c): c is string => !!c))],
+            crossAt: crossPoints(ap, use.nodes, own),
+          };
+        }
+      };
+      pick(avoidRefs);
+      if (!best && avoidRefs) pick(undefined);
       if (best) out.push(best);
     }
   } else {
