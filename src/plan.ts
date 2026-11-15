@@ -116,6 +116,12 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
   }
   // collapse duplicates (two templates resolving to the same path)
   const uniq = out.filter((o, i) => out.findIndex((p) => p.summary === o.summary) === i);
+  // when the published route can be followed in full, lead with the shortest such
+  // variant — for T1 that is how the north (K) and south (G) flows are chosen
+  const full = new Set(uniq.filter((o) => !o.missed.length));
+  if (full.size > 1) {
+    uniq.sort((a, b) => (full.has(a) ? 0 : 1) - (full.has(b) ? 0 : 1) || (full.has(a) ? a.length - b.length : 0));
+  }
   // a hand-picked exit/entry can make some published routes absurd: drop the detours
   if (!req.point) return uniq;
   const min = Math.min(...uniq.map((o) => o.length));
