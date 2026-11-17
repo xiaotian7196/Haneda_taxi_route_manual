@@ -79,6 +79,8 @@ const S = {
   basePhoto: { en: "Aerial photo", ja: "航空写真" },
   baseNone: { en: "None", ja: "なし" },
   gsiCredit: { en: "GSI Tiles (Geospatial Information Authority of Japan)", ja: "地理院タイル（国土地理院）" },
+  authorCredit: { en: "By", ja: "制作" },
+  repoCredit: { en: "Project on GitHub", ja: "GitHub リポジトリ" },
   zoomIn: { en: "Zoom in", ja: "拡大" },
   zoomOut: { en: "Zoom out", ja: "縮小" },
   fitAll: { en: "Show whole airport", ja: "空港全体を表示" },
