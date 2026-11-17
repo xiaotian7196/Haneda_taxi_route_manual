@@ -91,6 +91,9 @@ It defaults to `K:/SteamLibrary/steamapps/common/X-Plane 12/Custom Data`, or you
 
 ## Credits
 
+Built by [lpxlpx7](https://github.com/lpxlpx7) and [xiaotian7196](https://github.com/xiaotian7196).
+Source: <https://github.com/xiaotian7196/Haneda_taxi_route_manual>.
+
 Taxi logic follows Kono_Hana, "Tokyo International (Haneda) departure & arrival taxi overview"
 (bilibili opus 780986004248985619, last edited 2024-01). That article describes general practice and
 does not list one-way restrictions or hot spots.
@@ -110,3 +113,19 @@ scripts/              nav data extract, OSM fetch, data build, route smoke test
 data/navdata/         runway records extracted from X-Plane Custom Data
 public/RJTT.png       app icon
 ```
+
+## Licence
+
+Copyright (C) 2026 xiaotian7196.
+
+This project is free software, released under the **GNU General Public License, version 2**
+(SPDX: `GPL-2.0-only`). You may copy, modify and redistribute it under the terms of that licence; the
+full text is in [LICENSE](LICENSE).
+
+It is distributed in the hope that it will be useful, but **without any warranty**, without even the
+implied warranty of merchantability or fitness for a particular purpose. See the GNU General Public
+License for details.
+
+The licence covers the guide's own source code. Bundled third-party data keeps its own terms — see the
+Data table above: the OpenStreetMap extract is © OpenStreetMap contributors under the ODbL, and the
+runway records come from Navigraph / Jeppesen.
