@@ -148,12 +148,11 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
   return uniq.filter((o) => o.length <= min * 1.35);
 }
 
-/** index of the preferred option (fewest missed taxiways, then shortest); tags the option chips */
+/** index of the shortest option — the one the chips tag and the panel selects */
 export function bestIndex(opts: PlanOption[]): number {
   let bi = 0;
   opts.forEach((o, i) => {
-    const b = opts[bi];
-    if (o.missed.length < b.missed.length || (o.missed.length === b.missed.length && o.length < b.length)) bi = i;
+    if (o.length < opts[bi].length) bi = i;
   });
   return bi;
 }
