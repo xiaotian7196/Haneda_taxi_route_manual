@@ -53,8 +53,13 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
 
   if (req.mode === "arr") {
     const exits = ap.exits(req.runway);
+    // taxiways a movement may not use, from the published handling rules
+    const num = parseInt(stand.ref, 10);
     // T1 arrivals are worked via K (north) or G (south); J and H are not used
-    const avoidRefs = stand.group === "T1" ? ["J", "H"] : undefined;
+    // the eastern T2 stands (56-73, 81-84) are not worked via R
+    const avoidRefs = stand.group === "T1" ? ["J", "H"]
+      : stand.group === "T2" && ((num >= 56 && num <= 73) || (num >= 81 && num <= 84)) ? ["R"]
+      : undefined;
     // the direct route from an exit only depends on the exit and the banned set
     const direct = new Map<string, ReturnType<typeof route>>();
     const directRoute = (exit: Exit, avoid?: string[]) => {
