@@ -181,6 +181,14 @@ button { font: inherit; color: inherit; }
 body[data-base="none"] #attribution .row:first-child > a:first-child,
 body[data-base="none"] #attribution .row:first-child > .sep { display: none; }
 
+#disclaimer {
+  position: fixed; right: 16px; bottom: 70px; z-index: 5;
+  max-width: min(460px, calc(100vw - 32px));
+  font-size: 10.5px; color: var(--red); text-align: right;
+  background: var(--glass); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  padding: 2px 7px; border-radius: 6px;
+}
+
 #layer-menu {
   position: fixed; right: 68px; top: 112px; z-index: 6; width: 200px; border-radius: 14px; padding: 6px;
   display: flex; flex-direction: column; transform-origin: top right; animation: pop 0.18s cubic-bezier(0.32, 0.72, 0, 1);
@@ -371,6 +379,7 @@ footer::before { content: ""; display: block; border-top: 0.5px solid var(--sepa
   #compass { right: 12px; top: 204px; }
   #scale { top: 12px; left: 12px; right: auto; bottom: auto; }
   #attribution { top: 32px; left: 12px; right: auto; bottom: auto; }
+  #disclaimer { top: 68px; left: 12px; right: auto; bottom: auto; text-align: left; }
   #layer-menu { right: 64px; top: 108px; }
 }
 
