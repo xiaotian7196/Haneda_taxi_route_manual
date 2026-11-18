@@ -139,14 +139,11 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
   }
   // collapse duplicates (two templates resolving to the same path)
   const uniq = out.filter((o, i) => out.findIndex((p) => p.summary === o.summary) === i);
-  // when the published route can be followed in full, lead with the shortest such
-  // variant — for T1 that is how the north (K) and south (G) flows are chosen
-  const full = new Set(uniq.filter((o) => !o.missed.length));
-  if (full.size > 1) {
-    uniq.sort((a, b) => (full.has(a) ? 0 : 1) - (full.has(b) ? 0 : 1) || (full.has(a) ? a.length - b.length : 0));
-  }
-  // a hand-picked exit/entry can make some published routes absurd: drop the detours
-  if (!req.point) return uniq;
+  // nearest first: which side of the apron a stand is worked from is decided by taxi
+  // distance, so the shortest option is the one shown by default
+  uniq.sort((a, b) => a.length - b.length);
+  // a published route that comes out far longer than the nearest one is a detour,
+  // not a variant: drop it instead of offering it
   const min = Math.min(...uniq.map((o) => o.length));
   return uniq.filter((o) => o.length <= min * 1.35);
 }
