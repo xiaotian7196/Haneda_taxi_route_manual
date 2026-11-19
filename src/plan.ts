@@ -98,7 +98,7 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
           // island: when the direct route is much shorter, take it and say which
           // published taxiways it left out.
           const d = directRoute(exit, avoid);
-          const use = d && r.length > d.length * 1.2 ? d : r;
+          const use = t.strict || !d || r.length <= d.length * 1.2 ? r : d;
           const missed = use === d ? t.via.filter((v) => !use.refs.includes(v)) : r.missed;
           // prefer exits around a typical airliner landing roll over long roll-outs
           const score = use.length + Math.max(0, exit.s - LIKELY_EXIT_S) * 2 + missed.length * 4000;
