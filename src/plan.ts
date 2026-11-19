@@ -73,6 +73,12 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
     // south side must not be worked via K: that route runs up the north side and
     // comes all the way back down
     let list = templates(ARRIVALS, req.runway, stand.group, req.flow);
+    // templates that only apply to part of the terminal (by stand number)
+    const standNum = parseInt(stand.ref, 10);
+    if (list.some((t) => t.stands)) {
+      const inRange = list.filter((t) => !t.stands || (standNum >= t.stands[0] && standNum <= t.stands[1]));
+      if (inRange.length) list = inRange;
+    }
     if (stand.group === "T1" && stand.y < 0) {
       const south = list.filter((t) => !t.via.includes("K"));
       if (south.length) list = south;
@@ -144,20 +150,22 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
   }
   // collapse duplicates (two templates resolving to the same path)
   const uniq = out.filter((o, i) => out.findIndex((p) => p.summary === o.summary) === i);
-  // nearest first: which side of the apron a stand is worked from is decided by taxi
-  // distance, so the shortest option is the one shown by default
-  uniq.sort((a, b) => a.length - b.length);
+  // nearest first, but a route that follows the published taxiways beats a shorter
+  // one that skips them: that is the option the chips tag and the panel selects
+  uniq.sort((a, b) => a.missed.length - b.missed.length || a.length - b.length);
   // a published route that comes out far longer than the nearest one is a detour,
   // not a variant: drop it instead of offering it
-  const min = Math.min(...uniq.map((o) => o.length));
+  const pool = uniq.some((o) => !o.missed.length) ? uniq.filter((o) => !o.missed.length) : uniq;
+  const min = Math.min(...pool.map((o) => o.length));
   return uniq.filter((o) => o.length <= min * 1.35);
 }
 
-/** index of the shortest option — the one the chips tag and the panel selects */
+/** index of the recommended option: fewest skipped taxiways, then shortest */
 export function bestIndex(opts: PlanOption[]): number {
+  const key = (o: PlanOption) => o.missed.length * 1e6 + o.length;
   let bi = 0;
   opts.forEach((o, i) => {
-    if (o.length < opts[bi].length) bi = i;
+    if (key(o) < key(opts[bi])) bi = i;
   });
   return bi;
 }
