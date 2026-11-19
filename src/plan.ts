@@ -107,8 +107,9 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
           const d = directRoute(exit, avoid);
           const use = t.strict || !d || r.length <= d.length * 1.2 ? r : d;
           const missed = use === d ? t.via.filter((v) => !use.refs.includes(v)) : r.missed;
-          // prefer exits around a typical airliner landing roll over long roll-outs
-          const score = use.length + Math.max(0, exit.s - LIKELY_EXIT_S) * 2 + missed.length * 4000;
+          // prefer a shallow turn-off around a typical landing roll over a long
+          // roll-out or a sharp exit
+          const score = use.length + Math.max(0, exit.s - LIKELY_EXIT_S) * 2 + exit.angle * 3 + missed.length * 4000;
           if (best && bestScore <= score) continue;
           bestScore = score;
           const st = steps(ap, use, own);
