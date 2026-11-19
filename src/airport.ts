@@ -208,7 +208,10 @@ export class Airport {
 
   /** runway exits usable after landing on `ident` */
   exits(ident: string): Exit[] {
-    return this.legs(ident).filter((l) => l.s >= 900 && l.angle <= 100);
+    // runway 23 has turn-offs on one side only, so the connectors built for runway 05
+    // (D3, D4) are used as well; elsewhere a turn-off over 100 deg is the wrong way round
+    const limit = ident === "23" ? 115 : 100;
+    return this.legs(ident).filter((l) => l.s >= 900 && l.angle <= limit);
   }
 
   /** walk along `ref` from (from -> to) until `stop(node)` or `maxLen`; returns the visited nodes */
