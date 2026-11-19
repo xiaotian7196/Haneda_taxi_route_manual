@@ -76,8 +76,9 @@ export const ARRIVALS: Table = {
     T3: [{ via: ["M", "L"], side: "L" }, { via: [], side: "L", note: { en: "T3 north-wing stands", ja: "T3 北ウイングのスポット" } }],
   },
   "23": {
-    T1: [{ via: ["R", "G", "A"] }, { via: ["R", "G", "W"] }],
-    T2: [{ via: ["R", "H", "E"] }],
+    // landing on 23: the south stands are worked up R and then H, joining E if needed
+    T1: [{ via: ["R", "H"] }],
+    T2: [{ via: ["R", "H"] }],
     T3: [{ via: ["R", "G", "A"], note: { en: "Cross 16R on A", ja: "A で 16R を横断" } }],
   },
   "16L": {
