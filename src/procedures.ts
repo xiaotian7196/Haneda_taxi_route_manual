@@ -59,10 +59,10 @@ export const ARRIVALS: Table = {
   },
   "22": {
     // landing on 22: the south T1 stands turn off onto M and L and cross 16R on the
-    // nearest of L11 / L10 / L9 / L6; everything else runs up B and crosses on A15
+    // nearest of L11 / L9 / L6 (L10 is a high-speed exit, not a taxiway);
+    // everything else runs up B and crosses on A15
     T1: [
       { via: ["M", "L", "L11"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L11", ja: "L11 で 16R を横断" } },
-      { via: ["M", "L", "L10"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L10", ja: "L10 で 16R を横断" } },
       { via: ["M", "L", "L9"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L9", ja: "L9 で 16R を横断" } },
       { via: ["M", "L", "L6"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L6", ja: "L6 で 16R を横断" } },
       { via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, stands: [35, 350], note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
