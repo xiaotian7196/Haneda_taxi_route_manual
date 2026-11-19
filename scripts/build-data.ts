@@ -107,7 +107,7 @@ const nodeAt = (p: [number, number], tol = 3) => {
 };
 const LINKS: [[number, number], [number, number]][] = [
   [[-312, -620], [-301, -621]], // L9 -> A9 across 16R/34L
-  [[-380, -491], [-409, -521]], // L10 -> A10 across 16R/34L
+  [[-386, -540], [-273, -559]], // L10 -> A9 across 16R/34L
 ];
 for (const [p, q] of LINKS) {
   const a = nodeAt(p);
