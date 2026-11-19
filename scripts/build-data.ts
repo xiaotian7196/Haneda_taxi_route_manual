@@ -89,6 +89,32 @@ for (const w of ways) {
 
 // ---------- geometry helpers ----------
 const dist = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+// ---------- manual links ----------
+// A runway crossing is sometimes drawn as two separate ways with a gap between
+// them, which leaves the graph cut in half. Bridge those pairs by coordinate.
+const nodeAt = (p: [number, number], tol = 3) => {
+  let best = -1;
+  let bd = tol;
+  nodeXY.forEach((q, i) => {
+    const d = dist(p, q);
+    if (d <= bd) {
+      bd = d;
+      best = i;
+    }
+  });
+  return best;
+};
+const LINKS: [[number, number], [number, number]][] = [
+  [[-312, -620], [-301, -621]], // L9 -> A9 across 16R/34L
+];
+for (const [p, q] of LINKS) {
+  const a = nodeAt(p);
+  const b = nodeAt(q);
+  const joined = edges.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
+  if (a >= 0 && b >= 0 && a !== b && !joined) edges.push([a, b, refIdx(undefined)]);
+}
+
 function projectToEdges(p: [number, number]) {
   let best = { d: Infinity, e: -1, t: 0, q: [0, 0] as [number, number] };
   edges.forEach(([a, b], ei) => {
