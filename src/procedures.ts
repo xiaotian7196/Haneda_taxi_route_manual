@@ -29,6 +29,8 @@ export interface Template {
   flows?: FlowId[];
   /** the published taxiways must be flown even when a direct line is shorter */
   strict?: boolean;
+  /** arrival: only for stands whose number is inside this inclusive range */
+  stands?: [number, number];
 }
 type Table = Record<string, Partial<Record<Group, Template[]>>>;
 
@@ -56,8 +58,16 @@ export const ARRIVALS: Table = {
     ],
   },
   "22": {
-    // landing on 22: west of 16R the flow runs up B and crosses on A15/L15
-    T1: [{ via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } }],
+    // landing on 22: the south T1 stands turn off onto M and L and cross 16R on the
+    // nearest of L11 / L9 / L6; everything else runs up B and crosses on A15
+    T1: [
+      { via: ["M", "L", "L11"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L11", ja: "L11 で 16R を横断" } },
+      { via: ["M", "L", "L9"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L9", ja: "L9 で 16R を横断" } },
+      { via: ["M", "L", "L6"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L6", ja: "L6 で 16R を横断" } },
+      { via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, stands: [35, 350], note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
+      { via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, stands: [401, 402], note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
+      { via: [], side: "L", stands: [351, 366], note: { en: "Direct to the T1 north pier", ja: "T1 北ウイングへ直接" } },
+    ],
     T2: [
       { via: ["B", "L15", "A15", "K", "E"], side: "L", strict: true, note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
       { via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
