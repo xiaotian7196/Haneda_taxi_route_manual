@@ -27,6 +27,8 @@ export interface Template {
   /** arrival: recommended turn-off side */
   side?: "L" | "R";
   flows?: FlowId[];
+  /** the published taxiways must be flown even when a direct line is shorter */
+  strict?: boolean;
 }
 type Table = Record<string, Partial<Record<Group, Template[]>>>;
 
@@ -54,11 +56,11 @@ export const ARRIVALS: Table = {
     ],
   },
   "22": {
-    T1: [{ via: ["M", "L", "A", "H"], side: "L", note: { en: "Cross 16R on L", ja: "L で 16R を横断" } }],
+    // landing on 22: west of 16R the flow runs up B and crosses on A15/L15
+    T1: [{ via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } }],
     T2: [
-      { via: ["B", "L15", "A15", "K", "E"], side: "L", note: { en: "Cross 16R on L15", ja: "L15 で 16R を横断" } },
-      { via: ["B", "L15", "A15", "K", "R"], side: "L", note: { en: "Cross 16R on L15", ja: "L15 で 16R を横断" } },
-      { via: ["M", "L", "A", "H"], side: "L", note: { en: "T2 south-side stands · cross 16R on L", ja: "T2 南側スポット · L で 16R を横断" } },
+      { via: ["B", "L15", "A15", "K", "E"], side: "L", strict: true, note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
+      { via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
     ],
     T3: [{ via: ["M", "L"], side: "L" }, { via: [], side: "L", note: { en: "T3 north-wing stands", ja: "T3 北ウイングのスポット" } }],
   },
