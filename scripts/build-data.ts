@@ -105,14 +105,16 @@ const nodeAt = (p: [number, number], tol = 3) => {
   });
   return best;
 };
-const LINKS: [[number, number], [number, number]][] = [
-  [[-312, -620], [-301, -621]], // L9 -> A9 across 16R/34L
+const LINKS: { a: [number, number]; b: [number, number]; r?: string }[] = [
+  { a: [-312, -620], b: [-301, -621] }, // L9 -> A9 across 16R/34L
+  { a: [2316, -2874], b: [2365, -2887], r: "D3" }, // D3 turn-off reaches the runway
+  { a: [2362, -2810], b: [2377, -2855], r: "D4" }, // D4 turn-off reaches the runway
 ];
-for (const [p, q] of LINKS) {
+for (const { a: p, b: q, r } of LINKS) {
   const a = nodeAt(p);
   const b = nodeAt(q);
   const joined = edges.some(([x, y]) => (x === a && y === b) || (x === b && y === a));
-  if (a >= 0 && b >= 0 && a !== b && !joined) edges.push([a, b, refIdx(undefined)]);
+  if (a >= 0 && b >= 0 && a !== b && !joined) edges.push([a, b, refIdx(r)]);
 }
 
 function projectToEdges(p: [number, number]) {
