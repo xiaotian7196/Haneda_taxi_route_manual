@@ -333,7 +333,17 @@ section h2 { margin: 0 0 8px 4px; font: 600 13px var(--font); color: var(--label
 .sign.rw { background: var(--red); color: #fff; }
 .sign.spot { background: var(--yellow); color: #000; }
 .signs .arrow { color: var(--label-3); font-size: 12px; }
-.options { display: flex; gap: 6px; overflow-x: auto; margin: 0 -4px 12px; padding: 0 4px; scrollbar-width: none; }
+.options {
+  display: flex; gap: 6px; overflow-x: auto; overscroll-behavior-x: contain;
+  margin: 0 -4px 12px; padding: 0 4px 6px;
+  scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--label) 28%, transparent) transparent;
+}
+.options::-webkit-scrollbar { height: 6px; }
+.options::-webkit-scrollbar-track { background: transparent; }
+.options::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--label) 28%, transparent); border-radius: 3px;
+}
+.options::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--label) 45%, transparent); }
 .options .chip { flex: none; }
 .notice {
   display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 10px 12px; border-radius: 12px;
