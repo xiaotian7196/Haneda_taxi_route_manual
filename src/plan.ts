@@ -77,7 +77,7 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
     // templates that only apply to part of the terminal (by stand number)
     const standNum = parseInt(stand.ref, 10);
     if (list.some((t) => t.stands)) {
-      const inRange = list.filter((t) => !t.stands || (standNum >= t.stands[0] && standNum <= t.stands[1]));
+      const inRange = list.filter((t) => !t.stands || t.stands.some(([a, b]) => standNum >= a && standNum <= b));
       if (inRange.length) list = inRange;
     }
     if (stand.group === "T1" && stand.y < 0) {
