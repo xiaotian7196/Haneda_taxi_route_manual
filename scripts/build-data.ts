@@ -222,9 +222,13 @@ for (const s of standsByRef.values()) {
   else if (side(rwC, p) < 0) s.group = s.x < T1T2_SPLIT_X ? "T1" : "T2";
   else s.group = "T2";
 }
-// stand 1 sits on the T1 pier even though it falls east of the geometric split
-const stand1 = standsByRef.get("1");
-if (stand1) stand1.group = "T1";
+// stand 1 sits on the T1 pier even though it falls east of the geometric split,
+// and the 2xx stands beside it are worked from the same side
+for (const s of standsByRef.values()) {
+  const ref = s.ref;
+  const n = parseInt(ref, 10);
+  if (ref === "1" || (n >= 201 && n <= 214)) s.group = "T1";
+}
 
 // ---------- areas ----------
 const poly = (w: OsmWay) => w.geometry.flatMap((g) => toXY(g.lat, g.lon));
