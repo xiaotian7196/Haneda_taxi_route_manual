@@ -29,8 +29,8 @@ export interface Template {
   flows?: FlowId[];
   /** the published taxiways must be flown even when a direct line is shorter */
   strict?: boolean;
-  /** arrival: only for stands whose number is inside this inclusive range */
-  stands?: [number, number];
+  /** arrival: only for stands whose number is inside one of these inclusive ranges */
+  stands?: [number, number][];
 }
 type Table = Record<string, Partial<Record<Group, Template[]>>>;
 
@@ -58,16 +58,16 @@ export const ARRIVALS: Table = {
     ],
   },
   "22": {
-    // landing on 22: the south T1 stands turn off onto M and L and cross 16R on the
-    // nearest of L11 / L9 / L6 (L10 is a high-speed exit, not a taxiway);
-    // everything else runs up B and crosses on A15
+    // landing on 22: the south T1 stands (and the 2xx block beside them) turn off onto
+    // M and L and cross 16R on the nearest of L11 / L9 / L6 (L10 is a high-speed exit,
+    // not a taxiway); the north pier runs up B and crosses on A15
     T1: [
-      { via: ["M", "L", "L11"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L11", ja: "L11 で 16R を横断" } },
-      { via: ["M", "L", "L9"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L9", ja: "L9 で 16R を横断" } },
-      { via: ["M", "L", "L6"], side: "L", stands: [1, 34], strict: true, note: { en: "Cross 16R on L6", ja: "L6 で 16R を横断" } },
-      { via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, stands: [35, 350], note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
-      { via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, stands: [401, 402], note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
-      { via: [], side: "L", stands: [351, 366], note: { en: "Direct to the T1 north pier", ja: "T1 北ウイングへ直接" } },
+      { via: ["M", "L", "L11"], side: "L", stands: [[1, 34], [201, 214]], strict: true, note: { en: "Cross 16R on L11", ja: "L11 で 16R を横断" } },
+      { via: ["M", "L", "L9"], side: "L", stands: [[1, 34], [201, 214]], strict: true, note: { en: "Cross 16R on L9", ja: "L9 で 16R を横断" } },
+      { via: ["M", "L", "L6"], side: "L", stands: [[1, 34], [201, 214]], strict: true, note: { en: "Cross 16R on L6", ja: "L6 で 16R を横断" } },
+      { via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, stands: [[35, 200], [300, 350]], note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
+      { via: ["B", "L15", "A15", "K", "R"], side: "L", strict: true, stands: [[401, 402]], note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
+      { via: [], side: "L", stands: [[351, 366]], note: { en: "Direct to the T1 north pier", ja: "T1 北ウイングへ直接" } },
     ],
     T2: [
       { via: ["B", "L15", "A15", "K", "E"], side: "L", strict: true, note: { en: "Cross 16R on A15", ja: "A15 で 16R を横断" } },
