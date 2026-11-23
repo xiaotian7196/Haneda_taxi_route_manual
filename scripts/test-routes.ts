@@ -71,6 +71,14 @@ if (!l12 || l12refs[0] !== "L12" || l12refs[1] !== "L" || l12refs.includes("L11"
   console.log(`  BAD L12 runout: ${l12?.summary ?? "no route"}`);
 }
 
+// T3 arrivals on 34R cross 34L on A15 or A3; they are never routed down J.
+const t3 = plan(ap, { mode: "arr", flow: "N", runway: "34R", stand: "114", point: "C11L" });
+const t3bad = t3.find((o) => o.steps.some((s) => s.ref === "J"));
+if (!t3.length || t3bad) {
+  failures++;
+  console.log(`  BAD T3 34R uses J: ${t3bad?.summary ?? "no route"}`);
+}
+
 if (failures) {
   console.log(`\n${failures} route(s) double back on themselves`);
   process.exitCode = 1;

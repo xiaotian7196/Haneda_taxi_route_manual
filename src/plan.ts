@@ -93,8 +93,10 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
     const num = parseInt(stand.ref, 10);
     const north = req.runway === "34L" || req.runway === "34R";
     // north flow: T1 arrivals are worked via K or G and never through J or H;
+    // T3 arrivals on 34R cross 34L on A15 or A3, never down J;
     // south flow: the eastern T2 stands (56-73, 81-84) are not worked via R
     const avoidRefs = stand.group === "T1" && north ? ["J", "H"]
+      : stand.group === "T3" && req.runway === "34R" ? ["J"]
       : stand.group === "T2" && north && ((num >= 56 && num <= 73) || (num >= 81 && num <= 84)) ? ["R"]
       : undefined;
     // the direct route from an exit only depends on the exit and the banned set
