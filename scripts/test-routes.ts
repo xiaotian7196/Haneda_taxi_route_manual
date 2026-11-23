@@ -61,6 +61,16 @@ for (const f of FLOWS) {
   }
 }
 
+// L12 is the rapid exit from 34L: the clearance keeps the aircraft on L12 to
+// the end of the taxiway at L (the direction of the red arrow), not across the
+// shorter connector onto L11.
+const l12 = plan(ap, { mode: "arr", flow: "N", runway: "34L", stand: "141", point: "L12L" })[0];
+const l12refs = l12?.steps.map((s) => s.ref).filter(Boolean) ?? [];
+if (!l12 || l12refs[0] !== "L12" || l12refs[1] !== "L" || l12refs.includes("L11") || l12.steps[0].length < 300) {
+  failures++;
+  console.log(`  BAD L12 runout: ${l12?.summary ?? "no route"}`);
+}
+
 if (failures) {
   console.log(`\n${failures} route(s) double back on themselves`);
   process.exitCode = 1;

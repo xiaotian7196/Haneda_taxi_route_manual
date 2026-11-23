@@ -141,3 +141,13 @@ export function templates(table: Table, rwy: string, group: Group, flow: FlowId)
   const list = (table[rwy]?.[group] ?? []).filter((t) => !t.flows || t.flows.includes(flow));
   return list.length ? list : [{ via: [], note: { en: "No published route; shortest path used", ja: "標準ルートなし · 最短経路を使用" } }];
 }
+
+/**
+ * Arrival exits that are taxied to the end of their own taxiway before turning
+ * off, instead of taking the first connector.
+ * L12 is the rapid exit from 34L for the T3 apron: it runs north-west past the
+ * L11 junction and loops back south onto L. Leaving it at L11 cuts across the
+ * loop, so the L12 clearance is flown in the direction of the exit pavement
+ * (north-west) until the taxiway ends at L.
+ */
+export const EXIT_RUNOUT = new Set(["L12"]);

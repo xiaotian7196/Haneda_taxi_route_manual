@@ -1,7 +1,7 @@
 // Turns a user selection into one routed option per published template.
-import type { Airport, Exit, Leg, XY } from "./airport.ts";
-import { ARRIVALS, DEPARTURES, templates, type FlowId, type Template } from "./procedures.ts";
-import { route, steps, type Step } from "./router.ts";
+import { dist, type Airport, type Exit, type Leg, type XY } from "./airport.ts";
+import { ARRIVALS, DEPARTURES, EXIT_RUNOUT, templates, type FlowId, type Template } from "./procedures.ts";
+import { route, steps, type RouteResult, type Step } from "./router.ts";
 
 export interface PlanRequest {
   mode: "arr" | "dep";
@@ -38,6 +38,42 @@ function crossPoints(ap: Airport, nodes: number[], own: string) {
 export const MIN_EXIT_S = 1500;
 const LIKELY_EXIT_S = 2100;
 export const exitKey = (e: Exit) => e.ref + e.side;
+
+interface Runout {
+  /** turn-off point ... end of the exit taxiway */
+  nodes: number[];
+  length: number;
+}
+
+/**
+ * The stretch of an exit taxiway that still has to be taxied after vacating,
+ * from the turn-off point to the node where the taxiway ends at another named
+ * taxiway. Most exits are a short connector, but a rapid exit such as L12 is a
+ * long curve that loops back onto L: the first connector off it (L11) is a
+ * shortcut across the loop, not the cleared direction of travel.
+ */
+function exitRunouts(ap: Airport, exit: Exit): Runout[] {
+  const out: Runout[] = [];
+  const seen = new Set([exit.node, exit.next]);
+  const walk = (nodes: number[], length: number) => {
+    const cur = nodes[nodes.length - 1];
+    const prev = nodes[nodes.length - 2];
+    const nexts = ap.adj[cur].filter((a) => a.to !== prev && !seen.has(a.to));
+    const same = nexts.filter((a) => ap.refs[a.ref] === exit.ref);
+    // the exit taxiway is over where it stops existing and another named taxiway starts
+    if (!same.length && nexts.some((a) => a.ref !== 0 && ap.refs[a.ref] !== exit.ref)) {
+      out.push({ nodes: [...nodes], length });
+    }
+    for (const a of same) {
+      if (length + a.len > 1500) continue;
+      seen.add(a.to);
+      walk([...nodes, a.to], length + a.len);
+      seen.delete(a.to);
+    }
+  };
+  walk([exit.node, exit.next], dist(ap.xy[exit.node], ap.xy[exit.next]));
+  return out;
+}
 
 export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
   const stand = ap.stand(req.stand);
@@ -99,14 +135,37 @@ export function plan(ap: Airport, req: PlanRequest): PlanOption[] {
         best = null;
         let bestScore = Infinity;
         for (const exit of candidates) {
-          const r = route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own, goalDir, avoidRefs: avoid });
-          if (!r) continue;
-          // Following the published taxiways must not mean driving round an apron
-          // island: when the direct route is much shorter, take it and say which
-          // published taxiways it left out.
-          const d = directRoute(exit, avoid);
-          const use = t.strict || !d || r.length <= d.length * 1.2 ? r : d;
-          const missed = use === d ? t.via.filter((v) => !use.refs.includes(v)) : r.missed;
+          let use: RouteResult | null = null;
+          let missed: string[] = [];
+          // an exit with a long runout keeps the aircraft on its own taxiway; the
+          // connector to L11 for example is a shortcut, not the clearance
+          const runs = EXIT_RUNOUT.has(exit.ref) ? exitRunouts(ap, exit) : [];
+          for (const run of runs) {
+            const end = run.nodes[run.nodes.length - 1];
+            const r = route(ap, { start: end, goal: stand.entry, via: t.via, ownRunway: own, goalDir, avoidRefs: avoid });
+            if (!r) continue;
+            const combined: RouteResult = {
+              nodes: [...run.nodes, ...r.nodes.slice(1)],
+              refs: [...Array(run.nodes.length - 1).fill(exit.ref), ...r.refs],
+              length: run.length + r.length,
+              missed: r.missed,
+            };
+            if (!use || combined.length < use.length) use = combined;
+          }
+          if (use) {
+            missed = use.missed;
+          } else {
+            const r = route(ap, { start: exit.node, firstHop: exit.next, goal: stand.entry, via: t.via, ownRunway: own, goalDir, avoidRefs: avoid });
+            if (!r) continue;
+            // Following the published taxiways must not mean driving round an apron
+            // island: when the direct route is much shorter, take it and say which
+            // published taxiways it left out.
+            const d = directRoute(exit, avoid);
+            const chosen: RouteResult = t.strict || !d || r.length <= d.length * 1.2 ? r : d;
+            use = chosen;
+            missed = chosen === d ? t.via.filter((v) => !chosen.refs.includes(v)) : r.missed;
+          }
+          if (!use) continue;
           // prefer a shallow turn-off around a typical landing roll over a long
           // roll-out or a sharp exit
           const score = use.length + Math.max(0, exit.s - LIKELY_EXIT_S) * 2 + exit.angle * 3 + missed.length * 4000;
